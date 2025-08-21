@@ -7,7 +7,7 @@
 [![Coverage](./badges/coverage.svg)](./badges/coverage.svg)
 
 A GitHub Action that reads Clover format code coverage files from your test
-suite and outputs a markdown summary. This summary can be posted as a Pull
+suite and outputs a Markdown summary. This summary can be posted as a Pull
 Request comment or included in Release Notes by other actions to give you an
 immediate insight into the health of your code without using a third-party site.
 Code Coverage Summary is designed for use with any test framework that outputs
@@ -115,7 +115,7 @@ value must be in quotes.
 
 ```yaml
 - name: Code Coverage Summary Report
-  uses: saschanowak/CloverCodeCoverageSummary@1.1.0
+  uses: saschanowak/CloverCodeCoverageSummary@1.1.1
   with:
     filename: clover.xml
 ```
@@ -147,9 +147,9 @@ Version numbers will be assigned according to the
 [Semantic Versioning](https://semver.org/) scheme. This means, given a version
 number MAJOR.MINOR.PATCH, we will increment the:
 
-1. MAJOR version when we make incompatible API changes
-2. MINOR version when we add functionality in a backwards compatible manner
-3. PATCH version when we make backwards compatible bug fixes
+- MAJOR version when we make incompatible API changes
+- MINOR version when we add functionality in a backward compatible manner
+- PATCH version when we make backward compatible bugfixes
 
 ## Contributing
 

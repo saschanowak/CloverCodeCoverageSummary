@@ -37587,8 +37587,8 @@ async function run() {
         if (e instanceof Error)
             (0,core.setFailed)(e.message);
     }
-    await (0,promises_namespaceObject.writeFile)(__nccwpck_require__.ab + "code-coverage-summary.md", summary.join('\n'));
-    await (0,promises_namespaceObject.writeFile)(__nccwpck_require__.ab + "code-coverage-details.md", details.join('\n'));
+    await (0,promises_namespaceObject.writeFile)(external_path_.resolve('code-coverage-summary.md'), summary.join('\n'));
+    await (0,promises_namespaceObject.writeFile)(external_path_.resolve('code-coverage-details.md'), details.join('\n'));
     return {
         summary: summary.join('\n'),
         details: details.join('\n')
