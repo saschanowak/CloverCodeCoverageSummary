@@ -183,3 +183,18 @@ test('Markdown generation 3', async () => {
   expect(existsSync(path.resolve('./code-coverage-summary.md'))).toBeTruthy()
   expect(existsSync(path.resolve('./code-coverage-details.md'))).toBeTruthy()
 })
+
+test('Markdown generation 4', async () => {
+  process.env['INPUT_FILENAME'] = './__tests__/data/clover4.xml'
+  const generated = await run()
+  const summary = (
+    await readFile(path.resolve('./__tests__/data/code-coverage-summary.md'))
+  ).toString()
+  const details = (
+    await readFile(path.resolve('./__tests__/data/code-coverage-details.md'))
+  ).toString()
+  expect(summary).toBe(generated.summary)
+  expect(details).toBe(generated.details)
+  expect(existsSync(path.resolve('./code-coverage-summary.md'))).toBeTruthy()
+  expect(existsSync(path.resolve('./code-coverage-details.md'))).toBeTruthy()
+})

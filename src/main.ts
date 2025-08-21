@@ -1,8 +1,8 @@
-import {getInput, error, setFailed} from '@actions/core'
-import {XMLParser} from 'fast-xml-parser'
-import {existsSync, readFileSync} from 'fs'
-import {readFile, writeFile} from 'fs/promises'
-import {glob} from 'glob'
+import { getInput, error, setFailed } from '@actions/core'
+import { XMLParser } from 'fast-xml-parser'
+import { existsSync, readFileSync } from 'fs'
+import { readFile, writeFile } from 'fs/promises'
+import { glob } from 'glob'
 import path from 'path'
 
 interface Metric {
@@ -36,7 +36,7 @@ interface SummaryMetric extends Metric {
 interface Package {
   name: string
   metrics: PackageMetric
-  classes: {[key: string]: ClassMetric}
+  classes: { [key: string]: ClassMetric }
 }
 
 interface Packages {
@@ -179,12 +179,14 @@ export function getMetricRow(
   }`
 }
 
-export async function run(): Promise<{summary: string; details: string}> {
+export async function run(): Promise<{ summary: string; details: string }> {
   const summary: string[] = ['']
   const details: string[] = ['']
 
   try {
-    const files = await glob(getInput('filename'), {ignore: 'node_modules/**'})
+    const files = await glob(getInput('filename'), {
+      ignore: 'node_modules/**'
+    })
 
     for (const filePath of files) {
       const xmlData = await readFile(path.resolve(filePath), 'utf8')
@@ -195,21 +197,37 @@ export async function run(): Promise<{summary: string; details: string}> {
 
       const parser = new XMLParser(options)
       const reportData = parser.parse(xmlData)
-      let coverageFiles =
-        reportData.coverage.project?.file ||
-        reportData.coverage.project.package?.file ||
-        reportData.coverage.project.package?.reduce(
-          (_coverageFiles: CoverageFile[], packageData: CoveragePackage) => [
-            ..._coverageFiles,
-            ...(Array.isArray(packageData.file)
-              ? packageData.file
-              : [packageData.file])
-          ],
-          []
-        )
+      let coverageFiles: CoverageFile[] = []
 
-      if (!Array.isArray(coverageFiles)) {
-        coverageFiles = [coverageFiles]
+      if (reportData.coverage.project?.file) {
+        if (Array.isArray(reportData.coverage.project.file)) {
+          coverageFiles = [
+            ...coverageFiles,
+            ...reportData.coverage.project.file
+          ]
+        } else {
+          coverageFiles = [...coverageFiles, reportData.coverage.project.file]
+        }
+      }
+      if (reportData.coverage.project.package?.file) {
+        coverageFiles = [
+          ...coverageFiles,
+          ...reportData.coverage.project.package.file
+        ]
+      }
+      if (Array.isArray(reportData.coverage.project?.package)) {
+        coverageFiles = [
+          ...reportData.coverage.project.package.reduce(
+            (_coverageFiles: CoverageFile[], packageData: CoveragePackage) => [
+              ..._coverageFiles,
+              ...(Array.isArray(packageData.file)
+                ? packageData.file
+                : [packageData.file])
+            ],
+            []
+          ),
+          ...coverageFiles
+        ]
       }
 
       const packages: Packages = {}
@@ -220,7 +238,7 @@ export async function run(): Promise<{summary: string; details: string}> {
           continue
         }
 
-        if (!packages.hasOwnProperty(packageName)) {
+        if (!(packageName in packages)) {
           packages[packageName] = {
             name: packageName,
             classes: {},
@@ -284,12 +302,16 @@ export async function run(): Promise<{summary: string; details: string}> {
           10
         )
 
-        if (!file.hasOwnProperty('class')) {
+        if (!('class' in file)) {
           continue
         }
 
         const classes = !Array.isArray(file.class) ? [file.class] : file.class
         for (const item of classes) {
+          if (item === undefined || item === null) {
+            continue
+          }
+
           const statements = parseInt(item.metrics['@_statements'], 10)
           const coveredstatements = parseInt(
             item.metrics['@_coveredstatements'],
@@ -380,7 +402,7 @@ export async function run(): Promise<{summary: string; details: string}> {
         <th colspan="2">Classes
         <th colspan="1">Health
       ${Object.values(packages)
-        .map(_package => getMetricRow(_package.name, _package.metrics))
+        .map((_package) => getMetricRow(_package.name, _package.metrics))
         .join('\n')}
       ${getMetricRow('Summary', summaryMetric, true)}
       </table>`)
@@ -400,10 +422,10 @@ export async function run(): Promise<{summary: string; details: string}> {
               <th colspan="1">Health
             ${Object.values(packages)
               .map(
-                _package => `<tr>
+                (_package) => `<tr>
               <td colspan="8"><strong>${_package.name}
               ${Object.values(_package.classes)
-                .map(_class => getMetricRow(_class.name, _class))
+                .map((_class) => getMetricRow(_class.name, _class))
                 .join('\n')}`
               )
               .join('\n')}

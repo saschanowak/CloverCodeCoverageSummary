@@ -1,273 +1,9 @@
-require('./sourcemap-register.js');/******/ (() => { // webpackBootstrap
-/******/ 	var __webpack_modules__ = ({
-
-/***/ 5915:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.guessPackageNameByFilePath = guessPackageNameByFilePath;
-exports.getMetricRow = getMetricRow;
-exports.run = run;
-const core_1 = __nccwpck_require__(7484);
-const fast_xml_parser_1 = __nccwpck_require__(9741);
-const fs_1 = __nccwpck_require__(9896);
-const promises_1 = __nccwpck_require__(1943);
-const glob_1 = __nccwpck_require__(1363);
-const path_1 = __importDefault(__nccwpck_require__(6928));
-const packageNamePathMap = new Map();
-function guessPackageNameByFilePath(file) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const parts = file.split('/');
-        let packageName = 'unknown';
-        try {
-            parts.reduce((filePath, part) => {
-                if (packageNamePathMap.has(filePath)) {
-                    packageName = packageNamePathMap.get(filePath) || packageName;
-                }
-                return `${filePath}/${part}`.replace(/\/\//g, '/');
-            }, '');
-        }
-        catch (e) {
-            if (e instanceof Error)
-                (0, core_1.error)(e);
-        }
-        if (packageName !== 'unknown') {
-            return packageName;
-        }
-        do {
-            parts.pop();
-            const filePath = parts.join('/');
-            if ((0, fs_1.existsSync)(`${filePath}/composer.json`)) {
-                try {
-                    const foo = path_1.default.resolve(filePath, 'composer.json');
-                    const json = (0, fs_1.readFileSync)(foo, 'utf8');
-                    packageName = JSON.parse(json)['name'];
-                    break;
-                }
-                catch (e) {
-                    if (e instanceof Error)
-                        (0, core_1.error)(e);
-                }
-            }
-            if ((0, fs_1.existsSync)(`${filePath}/package.json`)) {
-                try {
-                    const foo = path_1.default.resolve(filePath, 'package.json');
-                    const json = (0, fs_1.readFileSync)(foo, 'utf8');
-                    packageName = JSON.parse(json)['name'];
-                    break;
-                }
-                catch (e) {
-                    if (e instanceof Error)
-                        (0, core_1.error)(e);
-                }
-            }
-        } while (parts.length > 0);
-        packageNamePathMap.set(parts.join('/'), packageName);
-        return packageName;
-    });
-}
-function getMetricRow(name, metrics, bold = false) {
-    const percentage = parseInt(((metrics.coveredmethods / metrics.methods) * 100).toString(), 10);
-    return `<tr>
-  <td>${bold ? '<strong>' : ''}${name}
-  <td align="center">${bold ? '<strong>' : ''}${((metrics.coveredstatements / metrics.statements || 0) * 100).toFixed(2)}%
-  <td align="right">${bold ? '<strong>' : ''}${metrics.coveredstatements}/${metrics.statements}
-  <td align="center">${bold ? '<strong>' : ''}${((metrics.coveredmethods / metrics.methods || 0) * 100).toFixed(2)}%
-  <td align="right">${bold ? '<strong>' : ''}${metrics.coveredmethods}/${metrics.methods}
-  <td align="center">${bold ? '<strong>' : ''}${((metrics.coveredclasses / metrics.classes) *
-        100).toFixed(2)}%
-  <td align="right">${bold ? '<strong>' : ''}${metrics.coveredclasses}/${metrics.classes}
-  <td align="center">${bold ? '<strong>' : ''}${percentage === 100
-        ? '🚀'
-        : percentage > 80
-            ? '✅'
-            : percentage > 50
-                ? '➖'
-                : '❌'}`;
-}
-function run() {
-    return __awaiter(this, void 0, void 0, function* () {
-        var _a, _b, _c;
-        const summary = [''];
-        const details = [''];
-        try {
-            const files = yield (0, glob_1.glob)((0, core_1.getInput)('filename'), { ignore: 'node_modules/**' });
-            for (const filePath of files) {
-                const xmlData = yield (0, promises_1.readFile)(path_1.default.resolve(filePath), 'utf8');
-                const options = {
-                    ignoreAttributes: false
-                };
-                const parser = new fast_xml_parser_1.XMLParser(options);
-                const reportData = parser.parse(xmlData);
-                let coverageFiles = ((_a = reportData.coverage.project) === null || _a === void 0 ? void 0 : _a.file) ||
-                    ((_b = reportData.coverage.project.package) === null || _b === void 0 ? void 0 : _b.file) ||
-                    ((_c = reportData.coverage.project.package) === null || _c === void 0 ? void 0 : _c.reduce((_coverageFiles, packageData) => [
-                        ..._coverageFiles,
-                        ...(Array.isArray(packageData.file)
-                            ? packageData.file
-                            : [packageData.file])
-                    ], []));
-                if (!Array.isArray(coverageFiles)) {
-                    coverageFiles = [coverageFiles];
-                }
-                const packages = {};
-                for (const file of coverageFiles) {
-                    const packageName = yield guessPackageNameByFilePath(file['@_name']);
-                    if (packageName === undefined) {
-                        continue;
-                    }
-                    if (!packages.hasOwnProperty(packageName)) {
-                        packages[packageName] = {
-                            name: packageName,
-                            classes: {},
-                            metrics: {
-                                name: packageName,
-                                classes: 0,
-                                coveredclasses: 0,
-                                loc: 0,
-                                ncloc: 0,
-                                methods: 0,
-                                coveredmethods: 0,
-                                conditionals: 0,
-                                coveredconditionals: 0,
-                                statements: 0,
-                                coveredstatements: 0,
-                                elements: 0,
-                                coveredelements: 0
-                            }
-                        };
-                    }
-                    packages[packageName].metrics.classes += parseInt(file.metrics['@_classes'], 10);
-                    packages[packageName].metrics.loc += parseInt(file.metrics['@_loc'], 10);
-                    packages[packageName].metrics.ncloc += parseInt(file.metrics['@_ncloc'], 10);
-                    packages[packageName].metrics.methods += parseInt(file.metrics['@_methods'], 10);
-                    packages[packageName].metrics.coveredmethods += parseInt(file.metrics['@_coveredmethods'], 10);
-                    packages[packageName].metrics.conditionals += parseInt(file.metrics['@_conditionals'], 10);
-                    packages[packageName].metrics.coveredconditionals += parseInt(file.metrics['@_coveredconditionals'], 10);
-                    packages[packageName].metrics.statements += parseInt(file.metrics['@_statements'], 10);
-                    packages[packageName].metrics.coveredstatements += parseInt(file.metrics['@_coveredstatements'], 10);
-                    packages[packageName].metrics.elements += parseInt(file.metrics['@_elements'], 10);
-                    packages[packageName].metrics.coveredelements += parseInt(file.metrics['@_coveredelements'], 10);
-                    if (!file.hasOwnProperty('class')) {
-                        continue;
-                    }
-                    const classes = !Array.isArray(file.class) ? [file.class] : file.class;
-                    for (const item of classes) {
-                        const statements = parseInt(item.metrics['@_statements'], 10);
-                        const coveredstatements = parseInt(item.metrics['@_coveredstatements'], 10);
-                        const covered = parseInt(((coveredstatements / statements) * 100).toString(), 10) === 100
-                            ? 1
-                            : 0;
-                        packages[packageName].classes[item['@_name']] = {
-                            name: item['@_name'],
-                            classes: 1,
-                            coveredclasses: covered,
-                            complexity: parseInt(item.metrics['@_complexity'], 10),
-                            loc: parseInt(item.metrics['@_loc'], 10),
-                            ncloc: parseInt(item.metrics['@_ncloc'], 10),
-                            methods: parseInt(item.metrics['@_methods'], 10),
-                            coveredmethods: parseInt(item.metrics['@_coveredmethods'], 10),
-                            conditionals: parseInt(item.metrics['@_conditionals'], 10),
-                            coveredconditionals: parseInt(item.metrics['@_coveredconditionals'], 10),
-                            statements: parseInt(item.metrics['@_statements'], 10),
-                            coveredstatements: parseInt(item.metrics['@_coveredstatements'], 10),
-                            elements: parseInt(item.metrics['@_elements'], 10),
-                            coveredelements: parseInt(item.metrics['@_coveredelements'], 10)
-                        };
-                        packages[packageName].metrics.coveredclasses += covered;
-                    }
-                }
-                const summaryMetric = {
-                    files: parseInt(reportData.coverage.project.metrics['@_files'], 10),
-                    loc: parseInt(reportData.coverage.project.metrics['@_loc'], 10),
-                    ncloc: parseInt(reportData.coverage.project.metrics['@_ncloc'], 10),
-                    classes: parseInt(reportData.coverage.project.metrics['@_classes'], 10),
-                    coveredclasses: Object.values(packages).reduce((covered, _package) => covered + _package.metrics.coveredclasses, 0),
-                    methods: parseInt(reportData.coverage.project.metrics['@_methods'], 10),
-                    coveredmethods: parseInt(reportData.coverage.project.metrics['@_coveredmethods'], 10),
-                    conditionals: parseInt(reportData.coverage.project.metrics['@_conditionals'], 10),
-                    coveredconditionals: parseInt(reportData.coverage.project.metrics['@_coveredconditionals'], 10),
-                    statements: parseInt(reportData.coverage.project.metrics['@_statements'], 10),
-                    coveredstatements: parseInt(reportData.coverage.project.metrics['@_coveredstatements'], 10),
-                    elements: parseInt(reportData.coverage.project.metrics['@_elements'], 10),
-                    coveredelements: parseInt(reportData.coverage.project.metrics['@_coveredelements'], 10)
-                };
-                summary.push(`<table>
-      <tr>
-        <th colspan="8">Code Coverage
-      <tr>
-        <th colspan="1">Package
-        <th colspan="2">Lines
-        <th colspan="2">Functions
-        <th colspan="2">Classes
-        <th colspan="1">Health
-      ${Object.values(packages)
-                    .map(_package => getMetricRow(_package.name, _package.metrics))
-                    .join('\n')}
-      ${getMetricRow('Summary', summaryMetric, true)}
-      </table>`);
-                summary.push('');
-                summary.push('');
-                details.push(`<details>
-          <summary>Code Coverage details</summary>
-          <table>
-            <tr>
-              <th colspan="8">Code Coverage
-            <tr>
-              <th colspan="1">Class
-              <th colspan="2">Lines
-              <th colspan="2">Functions
-              <th colspan="2">Classes
-              <th colspan="1">Health
-            ${Object.values(packages)
-                    .map(_package => `<tr>
-              <td colspan="8"><strong>${_package.name}
-              ${Object.values(_package.classes)
-                    .map(_class => getMetricRow(_class.name, _class))
-                    .join('\n')}`)
-                    .join('\n')}
-            ${getMetricRow('Summary', summaryMetric, true)}
-          </table>
-        </details>`);
-                details.push('');
-                details.push('');
-            }
-        }
-        catch (e) {
-            if (e instanceof Error)
-                (0, core_1.setFailed)(e.message);
-        }
-        yield (0, promises_1.writeFile)(path_1.default.resolve('code-coverage-summary.md'), summary.join('\n'));
-        yield (0, promises_1.writeFile)(path_1.default.resolve('code-coverage-details.md'), details.join('\n'));
-        return {
-            summary: summary.join('\n'),
-            details: details.join('\n')
-        };
-    });
-}
-run();
-
-
-/***/ }),
+import './sourcemap-register.cjs';import { createRequire as __WEBPACK_EXTERNAL_createRequire } from "module";
+/******/ var __webpack_modules__ = ({
 
 /***/ 4914:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -370,7 +106,6 @@ function escapeProperty(s) {
 /***/ 7484:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -721,7 +456,6 @@ exports.platform = __importStar(__nccwpck_require__(8968));
 /***/ 4753:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 // For internal use, subject to change.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -790,7 +524,6 @@ exports.prepareKeyValueMessage = prepareKeyValueMessage;
 /***/ 5306:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -874,7 +607,6 @@ exports.OidcClient = OidcClient;
 /***/ 1976:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -943,7 +675,6 @@ exports.toPlatformPath = toPlatformPath;
 /***/ 8968:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -1044,7 +775,6 @@ exports.getDetails = getDetails;
 /***/ 1847:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -1334,7 +1064,6 @@ exports.summary = _summary;
 /***/ 302:
 /***/ ((__unused_webpack_module, exports) => {
 
-"use strict";
 
 // We use any as a valid input type
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -1381,7 +1110,6 @@ exports.toCommandProperties = toCommandProperties;
 /***/ 5236:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -1491,7 +1219,6 @@ exports.getExecOutput = getExecOutput;
 /***/ 6665:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -2116,7 +1843,6 @@ class ExecState extends events.EventEmitter {
 /***/ 4552:
 /***/ (function(__unused_webpack_module, exports) {
 
-"use strict";
 
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
@@ -2204,7 +1930,6 @@ exports.PersonalAccessTokenCredentialHandler = PersonalAccessTokenCredentialHand
 /***/ 4844:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -2768,7 +2493,7 @@ class HttpClient {
         }
         const usingSsl = parsedUrl.protocol === 'https:';
         proxyAgent = new undici_1.ProxyAgent(Object.assign({ uri: proxyUrl.href, pipelining: !this._keepAlive ? 0 : 1 }, ((proxyUrl.username || proxyUrl.password) && {
-            token: `${proxyUrl.username}:${proxyUrl.password}`
+            token: `Basic ${Buffer.from(`${proxyUrl.username}:${proxyUrl.password}`).toString('base64')}`
         })));
         this._proxyAgentDispatcher = proxyAgent;
         if (usingSsl && this._ignoreSslError) {
@@ -2863,7 +2588,6 @@ const lowercaseKeys = (obj) => Object.keys(obj).reduce((c, k) => ((c[k.toLowerCa
 /***/ 4988:
 /***/ ((__unused_webpack_module, exports) => {
 
-"use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.checkBypass = exports.getProxyUrl = void 0;
@@ -2882,11 +2606,11 @@ function getProxyUrl(reqUrl) {
     })();
     if (proxyVar) {
         try {
-            return new URL(proxyVar);
+            return new DecodedURL(proxyVar);
         }
         catch (_a) {
             if (!proxyVar.startsWith('http://') && !proxyVar.startsWith('https://'))
-                return new URL(`http://${proxyVar}`);
+                return new DecodedURL(`http://${proxyVar}`);
         }
     }
     else {
@@ -2945,6 +2669,19 @@ function isLoopbackAddress(host) {
         hostLower.startsWith('[::1]') ||
         hostLower.startsWith('[0:0:0:0:0:0:0:1]'));
 }
+class DecodedURL extends URL {
+    constructor(url, base) {
+        super(url, base);
+        this._decodedUsername = decodeURIComponent(super.username);
+        this._decodedPassword = decodeURIComponent(super.password);
+    }
+    get username() {
+        return this._decodedUsername;
+    }
+    get password() {
+        return this._decodedPassword;
+    }
+}
 //# sourceMappingURL=proxy.js.map
 
 /***/ }),
@@ -2952,7 +2689,6 @@ function isLoopbackAddress(host) {
 /***/ 5207:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -3142,7 +2878,6 @@ exports.getCmdPath = getCmdPath;
 /***/ 4994:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -3445,2452 +3180,6 @@ function copyFile(srcFile, destFile, force) {
 
 /***/ }),
 
-/***/ 9380:
-/***/ ((module) => {
-
-"use strict";
-
-module.exports = balanced;
-function balanced(a, b, str) {
-  if (a instanceof RegExp) a = maybeMatch(a, str);
-  if (b instanceof RegExp) b = maybeMatch(b, str);
-
-  var r = range(a, b, str);
-
-  return r && {
-    start: r[0],
-    end: r[1],
-    pre: str.slice(0, r[0]),
-    body: str.slice(r[0] + a.length, r[1]),
-    post: str.slice(r[1] + b.length)
-  };
-}
-
-function maybeMatch(reg, str) {
-  var m = str.match(reg);
-  return m ? m[0] : null;
-}
-
-balanced.range = range;
-function range(a, b, str) {
-  var begs, beg, left, right, result;
-  var ai = str.indexOf(a);
-  var bi = str.indexOf(b, ai + 1);
-  var i = ai;
-
-  if (ai >= 0 && bi > 0) {
-    if(a===b) {
-      return [ai, bi];
-    }
-    begs = [];
-    left = str.length;
-
-    while (i >= 0 && !result) {
-      if (i == ai) {
-        begs.push(i);
-        ai = str.indexOf(a, i + 1);
-      } else if (begs.length == 1) {
-        result = [ begs.pop(), bi ];
-      } else {
-        beg = begs.pop();
-        if (beg < left) {
-          left = beg;
-          right = bi;
-        }
-
-        bi = str.indexOf(b, i + 1);
-      }
-
-      i = ai < bi && ai >= 0 ? ai : bi;
-    }
-
-    if (begs.length) {
-      result = [ left, right ];
-    }
-  }
-
-  return result;
-}
-
-
-/***/ }),
-
-/***/ 4691:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-var balanced = __nccwpck_require__(9380);
-
-module.exports = expandTop;
-
-var escSlash = '\0SLASH'+Math.random()+'\0';
-var escOpen = '\0OPEN'+Math.random()+'\0';
-var escClose = '\0CLOSE'+Math.random()+'\0';
-var escComma = '\0COMMA'+Math.random()+'\0';
-var escPeriod = '\0PERIOD'+Math.random()+'\0';
-
-function numeric(str) {
-  return parseInt(str, 10) == str
-    ? parseInt(str, 10)
-    : str.charCodeAt(0);
-}
-
-function escapeBraces(str) {
-  return str.split('\\\\').join(escSlash)
-            .split('\\{').join(escOpen)
-            .split('\\}').join(escClose)
-            .split('\\,').join(escComma)
-            .split('\\.').join(escPeriod);
-}
-
-function unescapeBraces(str) {
-  return str.split(escSlash).join('\\')
-            .split(escOpen).join('{')
-            .split(escClose).join('}')
-            .split(escComma).join(',')
-            .split(escPeriod).join('.');
-}
-
-
-// Basically just str.split(","), but handling cases
-// where we have nested braced sections, which should be
-// treated as individual members, like {a,{b,c},d}
-function parseCommaParts(str) {
-  if (!str)
-    return [''];
-
-  var parts = [];
-  var m = balanced('{', '}', str);
-
-  if (!m)
-    return str.split(',');
-
-  var pre = m.pre;
-  var body = m.body;
-  var post = m.post;
-  var p = pre.split(',');
-
-  p[p.length-1] += '{' + body + '}';
-  var postParts = parseCommaParts(post);
-  if (post.length) {
-    p[p.length-1] += postParts.shift();
-    p.push.apply(p, postParts);
-  }
-
-  parts.push.apply(parts, p);
-
-  return parts;
-}
-
-function expandTop(str) {
-  if (!str)
-    return [];
-
-  // I don't know why Bash 4.3 does this, but it does.
-  // Anything starting with {} will have the first two bytes preserved
-  // but *only* at the top level, so {},a}b will not expand to anything,
-  // but a{},b}c will be expanded to [a}c,abc].
-  // One could argue that this is a bug in Bash, but since the goal of
-  // this module is to match Bash's rules, we escape a leading {}
-  if (str.substr(0, 2) === '{}') {
-    str = '\\{\\}' + str.substr(2);
-  }
-
-  return expand(escapeBraces(str), true).map(unescapeBraces);
-}
-
-function embrace(str) {
-  return '{' + str + '}';
-}
-function isPadded(el) {
-  return /^-?0\d/.test(el);
-}
-
-function lte(i, y) {
-  return i <= y;
-}
-function gte(i, y) {
-  return i >= y;
-}
-
-function expand(str, isTop) {
-  var expansions = [];
-
-  var m = balanced('{', '}', str);
-  if (!m) return [str];
-
-  // no need to expand pre, since it is guaranteed to be free of brace-sets
-  var pre = m.pre;
-  var post = m.post.length
-    ? expand(m.post, false)
-    : [''];
-
-  if (/\$$/.test(m.pre)) {    
-    for (var k = 0; k < post.length; k++) {
-      var expansion = pre+ '{' + m.body + '}' + post[k];
-      expansions.push(expansion);
-    }
-  } else {
-    var isNumericSequence = /^-?\d+\.\.-?\d+(?:\.\.-?\d+)?$/.test(m.body);
-    var isAlphaSequence = /^[a-zA-Z]\.\.[a-zA-Z](?:\.\.-?\d+)?$/.test(m.body);
-    var isSequence = isNumericSequence || isAlphaSequence;
-    var isOptions = m.body.indexOf(',') >= 0;
-    if (!isSequence && !isOptions) {
-      // {a},b}
-      if (m.post.match(/,.*\}/)) {
-        str = m.pre + '{' + m.body + escClose + m.post;
-        return expand(str);
-      }
-      return [str];
-    }
-
-    var n;
-    if (isSequence) {
-      n = m.body.split(/\.\./);
-    } else {
-      n = parseCommaParts(m.body);
-      if (n.length === 1) {
-        // x{{a,b}}y ==> x{a}y x{b}y
-        n = expand(n[0], false).map(embrace);
-        if (n.length === 1) {
-          return post.map(function(p) {
-            return m.pre + n[0] + p;
-          });
-        }
-      }
-    }
-
-    // at this point, n is the parts, and we know it's not a comma set
-    // with a single entry.
-    var N;
-
-    if (isSequence) {
-      var x = numeric(n[0]);
-      var y = numeric(n[1]);
-      var width = Math.max(n[0].length, n[1].length)
-      var incr = n.length == 3
-        ? Math.abs(numeric(n[2]))
-        : 1;
-      var test = lte;
-      var reverse = y < x;
-      if (reverse) {
-        incr *= -1;
-        test = gte;
-      }
-      var pad = n.some(isPadded);
-
-      N = [];
-
-      for (var i = x; test(i, y); i += incr) {
-        var c;
-        if (isAlphaSequence) {
-          c = String.fromCharCode(i);
-          if (c === '\\')
-            c = '';
-        } else {
-          c = String(i);
-          if (pad) {
-            var need = width - c.length;
-            if (need > 0) {
-              var z = new Array(need + 1).join('0');
-              if (i < 0)
-                c = '-' + z + c.slice(1);
-              else
-                c = z + c;
-            }
-          }
-        }
-        N.push(c);
-      }
-    } else {
-      N = [];
-
-      for (var j = 0; j < n.length; j++) {
-        N.push.apply(N, expand(n[j], false));
-      }
-    }
-
-    for (var j = 0; j < N.length; j++) {
-      for (var k = 0; k < post.length; k++) {
-        var expansion = pre + N[j] + post[k];
-        if (!isTop || isSequence || expansion)
-          expansions.push(expansion);
-      }
-    }
-  }
-
-  return expansions;
-}
-
-
-
-/***/ }),
-
-/***/ 9741:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-
-
-const validator = __nccwpck_require__(9433);
-const XMLParser = __nccwpck_require__(9844);
-const XMLBuilder = __nccwpck_require__(659);
-
-module.exports = {
-  XMLParser: XMLParser,
-  XMLValidator: validator,
-  XMLBuilder: XMLBuilder
-}
-
-/***/ }),
-
-/***/ 812:
-/***/ ((module) => {
-
-function getIgnoreAttributesFn(ignoreAttributes) {
-    if (typeof ignoreAttributes === 'function') {
-        return ignoreAttributes
-    }
-    if (Array.isArray(ignoreAttributes)) {
-        return (attrName) => {
-            for (const pattern of ignoreAttributes) {
-                if (typeof pattern === 'string' && attrName === pattern) {
-                    return true
-                }
-                if (pattern instanceof RegExp && pattern.test(attrName)) {
-                    return true
-                }
-            }
-        }
-    }
-    return () => false
-}
-
-module.exports = getIgnoreAttributesFn
-
-/***/ }),
-
-/***/ 7019:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-
-const nameStartChar = ':A-Za-z_\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD';
-const nameChar = nameStartChar + '\\-.\\d\\u00B7\\u0300-\\u036F\\u203F-\\u2040';
-const nameRegexp = '[' + nameStartChar + '][' + nameChar + ']*'
-const regexName = new RegExp('^' + nameRegexp + '$');
-
-const getAllMatches = function(string, regex) {
-  const matches = [];
-  let match = regex.exec(string);
-  while (match) {
-    const allmatches = [];
-    allmatches.startIndex = regex.lastIndex - match[0].length;
-    const len = match.length;
-    for (let index = 0; index < len; index++) {
-      allmatches.push(match[index]);
-    }
-    matches.push(allmatches);
-    match = regex.exec(string);
-  }
-  return matches;
-};
-
-const isName = function(string) {
-  const match = regexName.exec(string);
-  return !(match === null || typeof match === 'undefined');
-};
-
-exports.isExist = function(v) {
-  return typeof v !== 'undefined';
-};
-
-exports.isEmptyObject = function(obj) {
-  return Object.keys(obj).length === 0;
-};
-
-/**
- * Copy all the properties of a into b.
- * @param {*} target
- * @param {*} a
- */
-exports.merge = function(target, a, arrayMode) {
-  if (a) {
-    const keys = Object.keys(a); // will return an array of own properties
-    const len = keys.length; //don't make it inline
-    for (let i = 0; i < len; i++) {
-      if (arrayMode === 'strict') {
-        target[keys[i]] = [ a[keys[i]] ];
-      } else {
-        target[keys[i]] = a[keys[i]];
-      }
-    }
-  }
-};
-/* exports.merge =function (b,a){
-  return Object.assign(b,a);
-} */
-
-exports.getValue = function(v) {
-  if (exports.isExist(v)) {
-    return v;
-  } else {
-    return '';
-  }
-};
-
-// const fakeCall = function(a) {return a;};
-// const fakeCallNoReturn = function() {};
-
-exports.isName = isName;
-exports.getAllMatches = getAllMatches;
-exports.nameRegexp = nameRegexp;
-
-
-/***/ }),
-
-/***/ 9433:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-
-const util = __nccwpck_require__(7019);
-
-const defaultOptions = {
-  allowBooleanAttributes: false, //A tag can have attributes without any value
-  unpairedTags: []
-};
-
-//const tagsPattern = new RegExp("<\\/?([\\w:\\-_\.]+)\\s*\/?>","g");
-exports.validate = function (xmlData, options) {
-  options = Object.assign({}, defaultOptions, options);
-
-  //xmlData = xmlData.replace(/(\r\n|\n|\r)/gm,"");//make it single line
-  //xmlData = xmlData.replace(/(^\s*<\?xml.*?\?>)/g,"");//Remove XML starting tag
-  //xmlData = xmlData.replace(/(<!DOCTYPE[\s\w\"\.\/\-\:]+(\[.*\])*\s*>)/g,"");//Remove DOCTYPE
-  const tags = [];
-  let tagFound = false;
-
-  //indicates that the root tag has been closed (aka. depth 0 has been reached)
-  let reachedRoot = false;
-
-  if (xmlData[0] === '\ufeff') {
-    // check for byte order mark (BOM)
-    xmlData = xmlData.substr(1);
-  }
-  
-  for (let i = 0; i < xmlData.length; i++) {
-
-    if (xmlData[i] === '<' && xmlData[i+1] === '?') {
-      i+=2;
-      i = readPI(xmlData,i);
-      if (i.err) return i;
-    }else if (xmlData[i] === '<') {
-      //starting of tag
-      //read until you reach to '>' avoiding any '>' in attribute value
-      let tagStartPos = i;
-      i++;
-      
-      if (xmlData[i] === '!') {
-        i = readCommentAndCDATA(xmlData, i);
-        continue;
-      } else {
-        let closingTag = false;
-        if (xmlData[i] === '/') {
-          //closing tag
-          closingTag = true;
-          i++;
-        }
-        //read tagname
-        let tagName = '';
-        for (; i < xmlData.length &&
-          xmlData[i] !== '>' &&
-          xmlData[i] !== ' ' &&
-          xmlData[i] !== '\t' &&
-          xmlData[i] !== '\n' &&
-          xmlData[i] !== '\r'; i++
-        ) {
-          tagName += xmlData[i];
-        }
-        tagName = tagName.trim();
-        //console.log(tagName);
-
-        if (tagName[tagName.length - 1] === '/') {
-          //self closing tag without attributes
-          tagName = tagName.substring(0, tagName.length - 1);
-          //continue;
-          i--;
-        }
-        if (!validateTagName(tagName)) {
-          let msg;
-          if (tagName.trim().length === 0) {
-            msg = "Invalid space after '<'.";
-          } else {
-            msg = "Tag '"+tagName+"' is an invalid name.";
-          }
-          return getErrorObject('InvalidTag', msg, getLineNumberForPosition(xmlData, i));
-        }
-
-        const result = readAttributeStr(xmlData, i);
-        if (result === false) {
-          return getErrorObject('InvalidAttr', "Attributes for '"+tagName+"' have open quote.", getLineNumberForPosition(xmlData, i));
-        }
-        let attrStr = result.value;
-        i = result.index;
-
-        if (attrStr[attrStr.length - 1] === '/') {
-          //self closing tag
-          const attrStrStart = i - attrStr.length;
-          attrStr = attrStr.substring(0, attrStr.length - 1);
-          const isValid = validateAttributeString(attrStr, options);
-          if (isValid === true) {
-            tagFound = true;
-            //continue; //text may presents after self closing tag
-          } else {
-            //the result from the nested function returns the position of the error within the attribute
-            //in order to get the 'true' error line, we need to calculate the position where the attribute begins (i - attrStr.length) and then add the position within the attribute
-            //this gives us the absolute index in the entire xml, which we can use to find the line at last
-            return getErrorObject(isValid.err.code, isValid.err.msg, getLineNumberForPosition(xmlData, attrStrStart + isValid.err.line));
-          }
-        } else if (closingTag) {
-          if (!result.tagClosed) {
-            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' doesn't have proper closing.", getLineNumberForPosition(xmlData, i));
-          } else if (attrStr.trim().length > 0) {
-            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' can't have attributes or invalid starting.", getLineNumberForPosition(xmlData, tagStartPos));
-          } else if (tags.length === 0) {
-            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' has not been opened.", getLineNumberForPosition(xmlData, tagStartPos));
-          } else {
-            const otg = tags.pop();
-            if (tagName !== otg.tagName) {
-              let openPos = getLineNumberForPosition(xmlData, otg.tagStartPos);
-              return getErrorObject('InvalidTag',
-                "Expected closing tag '"+otg.tagName+"' (opened in line "+openPos.line+", col "+openPos.col+") instead of closing tag '"+tagName+"'.",
-                getLineNumberForPosition(xmlData, tagStartPos));
-            }
-
-            //when there are no more tags, we reached the root level.
-            if (tags.length == 0) {
-              reachedRoot = true;
-            }
-          }
-        } else {
-          const isValid = validateAttributeString(attrStr, options);
-          if (isValid !== true) {
-            //the result from the nested function returns the position of the error within the attribute
-            //in order to get the 'true' error line, we need to calculate the position where the attribute begins (i - attrStr.length) and then add the position within the attribute
-            //this gives us the absolute index in the entire xml, which we can use to find the line at last
-            return getErrorObject(isValid.err.code, isValid.err.msg, getLineNumberForPosition(xmlData, i - attrStr.length + isValid.err.line));
-          }
-
-          //if the root level has been reached before ...
-          if (reachedRoot === true) {
-            return getErrorObject('InvalidXml', 'Multiple possible root nodes found.', getLineNumberForPosition(xmlData, i));
-          } else if(options.unpairedTags.indexOf(tagName) !== -1){
-            //don't push into stack
-          } else {
-            tags.push({tagName, tagStartPos});
-          }
-          tagFound = true;
-        }
-
-        //skip tag text value
-        //It may include comments and CDATA value
-        for (i++; i < xmlData.length; i++) {
-          if (xmlData[i] === '<') {
-            if (xmlData[i + 1] === '!') {
-              //comment or CADATA
-              i++;
-              i = readCommentAndCDATA(xmlData, i);
-              continue;
-            } else if (xmlData[i+1] === '?') {
-              i = readPI(xmlData, ++i);
-              if (i.err) return i;
-            } else{
-              break;
-            }
-          } else if (xmlData[i] === '&') {
-            const afterAmp = validateAmpersand(xmlData, i);
-            if (afterAmp == -1)
-              return getErrorObject('InvalidChar', "char '&' is not expected.", getLineNumberForPosition(xmlData, i));
-            i = afterAmp;
-          }else{
-            if (reachedRoot === true && !isWhiteSpace(xmlData[i])) {
-              return getErrorObject('InvalidXml', "Extra text at the end", getLineNumberForPosition(xmlData, i));
-            }
-          }
-        } //end of reading tag text value
-        if (xmlData[i] === '<') {
-          i--;
-        }
-      }
-    } else {
-      if ( isWhiteSpace(xmlData[i])) {
-        continue;
-      }
-      return getErrorObject('InvalidChar', "char '"+xmlData[i]+"' is not expected.", getLineNumberForPosition(xmlData, i));
-    }
-  }
-
-  if (!tagFound) {
-    return getErrorObject('InvalidXml', 'Start tag expected.', 1);
-  }else if (tags.length == 1) {
-      return getErrorObject('InvalidTag', "Unclosed tag '"+tags[0].tagName+"'.", getLineNumberForPosition(xmlData, tags[0].tagStartPos));
-  }else if (tags.length > 0) {
-      return getErrorObject('InvalidXml', "Invalid '"+
-          JSON.stringify(tags.map(t => t.tagName), null, 4).replace(/\r?\n/g, '')+
-          "' found.", {line: 1, col: 1});
-  }
-
-  return true;
-};
-
-function isWhiteSpace(char){
-  return char === ' ' || char === '\t' || char === '\n'  || char === '\r';
-}
-/**
- * Read Processing insstructions and skip
- * @param {*} xmlData
- * @param {*} i
- */
-function readPI(xmlData, i) {
-  const start = i;
-  for (; i < xmlData.length; i++) {
-    if (xmlData[i] == '?' || xmlData[i] == ' ') {
-      //tagname
-      const tagname = xmlData.substr(start, i - start);
-      if (i > 5 && tagname === 'xml') {
-        return getErrorObject('InvalidXml', 'XML declaration allowed only at the start of the document.', getLineNumberForPosition(xmlData, i));
-      } else if (xmlData[i] == '?' && xmlData[i + 1] == '>') {
-        //check if valid attribut string
-        i++;
-        break;
-      } else {
-        continue;
-      }
-    }
-  }
-  return i;
-}
-
-function readCommentAndCDATA(xmlData, i) {
-  if (xmlData.length > i + 5 && xmlData[i + 1] === '-' && xmlData[i + 2] === '-') {
-    //comment
-    for (i += 3; i < xmlData.length; i++) {
-      if (xmlData[i] === '-' && xmlData[i + 1] === '-' && xmlData[i + 2] === '>') {
-        i += 2;
-        break;
-      }
-    }
-  } else if (
-    xmlData.length > i + 8 &&
-    xmlData[i + 1] === 'D' &&
-    xmlData[i + 2] === 'O' &&
-    xmlData[i + 3] === 'C' &&
-    xmlData[i + 4] === 'T' &&
-    xmlData[i + 5] === 'Y' &&
-    xmlData[i + 6] === 'P' &&
-    xmlData[i + 7] === 'E'
-  ) {
-    let angleBracketsCount = 1;
-    for (i += 8; i < xmlData.length; i++) {
-      if (xmlData[i] === '<') {
-        angleBracketsCount++;
-      } else if (xmlData[i] === '>') {
-        angleBracketsCount--;
-        if (angleBracketsCount === 0) {
-          break;
-        }
-      }
-    }
-  } else if (
-    xmlData.length > i + 9 &&
-    xmlData[i + 1] === '[' &&
-    xmlData[i + 2] === 'C' &&
-    xmlData[i + 3] === 'D' &&
-    xmlData[i + 4] === 'A' &&
-    xmlData[i + 5] === 'T' &&
-    xmlData[i + 6] === 'A' &&
-    xmlData[i + 7] === '['
-  ) {
-    for (i += 8; i < xmlData.length; i++) {
-      if (xmlData[i] === ']' && xmlData[i + 1] === ']' && xmlData[i + 2] === '>') {
-        i += 2;
-        break;
-      }
-    }
-  }
-
-  return i;
-}
-
-const doubleQuote = '"';
-const singleQuote = "'";
-
-/**
- * Keep reading xmlData until '<' is found outside the attribute value.
- * @param {string} xmlData
- * @param {number} i
- */
-function readAttributeStr(xmlData, i) {
-  let attrStr = '';
-  let startChar = '';
-  let tagClosed = false;
-  for (; i < xmlData.length; i++) {
-    if (xmlData[i] === doubleQuote || xmlData[i] === singleQuote) {
-      if (startChar === '') {
-        startChar = xmlData[i];
-      } else if (startChar !== xmlData[i]) {
-        //if vaue is enclosed with double quote then single quotes are allowed inside the value and vice versa
-      } else {
-        startChar = '';
-      }
-    } else if (xmlData[i] === '>') {
-      if (startChar === '') {
-        tagClosed = true;
-        break;
-      }
-    }
-    attrStr += xmlData[i];
-  }
-  if (startChar !== '') {
-    return false;
-  }
-
-  return {
-    value: attrStr,
-    index: i,
-    tagClosed: tagClosed
-  };
-}
-
-/**
- * Select all the attributes whether valid or invalid.
- */
-const validAttrStrRegxp = new RegExp('(\\s*)([^\\s=]+)(\\s*=)?(\\s*([\'"])(([\\s\\S])*?)\\5)?', 'g');
-
-//attr, ="sd", a="amit's", a="sd"b="saf", ab  cd=""
-
-function validateAttributeString(attrStr, options) {
-  //console.log("start:"+attrStr+":end");
-
-  //if(attrStr.trim().length === 0) return true; //empty string
-
-  const matches = util.getAllMatches(attrStr, validAttrStrRegxp);
-  const attrNames = {};
-
-  for (let i = 0; i < matches.length; i++) {
-    if (matches[i][1].length === 0) {
-      //nospace before attribute name: a="sd"b="saf"
-      return getErrorObject('InvalidAttr', "Attribute '"+matches[i][2]+"' has no space in starting.", getPositionFromMatch(matches[i]))
-    } else if (matches[i][3] !== undefined && matches[i][4] === undefined) {
-      return getErrorObject('InvalidAttr', "Attribute '"+matches[i][2]+"' is without value.", getPositionFromMatch(matches[i]));
-    } else if (matches[i][3] === undefined && !options.allowBooleanAttributes) {
-      //independent attribute: ab
-      return getErrorObject('InvalidAttr', "boolean attribute '"+matches[i][2]+"' is not allowed.", getPositionFromMatch(matches[i]));
-    }
-    /* else if(matches[i][6] === undefined){//attribute without value: ab=
-                    return { err: { code:"InvalidAttr",msg:"attribute " + matches[i][2] + " has no value assigned."}};
-                } */
-    const attrName = matches[i][2];
-    if (!validateAttrName(attrName)) {
-      return getErrorObject('InvalidAttr', "Attribute '"+attrName+"' is an invalid name.", getPositionFromMatch(matches[i]));
-    }
-    if (!attrNames.hasOwnProperty(attrName)) {
-      //check for duplicate attribute.
-      attrNames[attrName] = 1;
-    } else {
-      return getErrorObject('InvalidAttr', "Attribute '"+attrName+"' is repeated.", getPositionFromMatch(matches[i]));
-    }
-  }
-
-  return true;
-}
-
-function validateNumberAmpersand(xmlData, i) {
-  let re = /\d/;
-  if (xmlData[i] === 'x') {
-    i++;
-    re = /[\da-fA-F]/;
-  }
-  for (; i < xmlData.length; i++) {
-    if (xmlData[i] === ';')
-      return i;
-    if (!xmlData[i].match(re))
-      break;
-  }
-  return -1;
-}
-
-function validateAmpersand(xmlData, i) {
-  // https://www.w3.org/TR/xml/#dt-charref
-  i++;
-  if (xmlData[i] === ';')
-    return -1;
-  if (xmlData[i] === '#') {
-    i++;
-    return validateNumberAmpersand(xmlData, i);
-  }
-  let count = 0;
-  for (; i < xmlData.length; i++, count++) {
-    if (xmlData[i].match(/\w/) && count < 20)
-      continue;
-    if (xmlData[i] === ';')
-      break;
-    return -1;
-  }
-  return i;
-}
-
-function getErrorObject(code, message, lineNumber) {
-  return {
-    err: {
-      code: code,
-      msg: message,
-      line: lineNumber.line || lineNumber,
-      col: lineNumber.col,
-    },
-  };
-}
-
-function validateAttrName(attrName) {
-  return util.isName(attrName);
-}
-
-// const startsWithXML = /^xml/i;
-
-function validateTagName(tagname) {
-  return util.isName(tagname) /* && !tagname.match(startsWithXML) */;
-}
-
-//this function returns the line number for the character at the given index
-function getLineNumberForPosition(xmlData, index) {
-  const lines = xmlData.substring(0, index).split(/\r?\n/);
-  return {
-    line: lines.length,
-
-    // column number is last line's length + 1, because column numbering starts at 1:
-    col: lines[lines.length - 1].length + 1
-  };
-}
-
-//this function returns the position of the first character of match within attrStr
-function getPositionFromMatch(match) {
-  return match.startIndex + match[1].length;
-}
-
-
-/***/ }),
-
-/***/ 659:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-
-//parse Empty Node as self closing node
-const buildFromOrderedJs = __nccwpck_require__(3997);
-const getIgnoreAttributesFn = __nccwpck_require__(812)
-
-const defaultOptions = {
-  attributeNamePrefix: '@_',
-  attributesGroupName: false,
-  textNodeName: '#text',
-  ignoreAttributes: true,
-  cdataPropName: false,
-  format: false,
-  indentBy: '  ',
-  suppressEmptyNode: false,
-  suppressUnpairedNode: true,
-  suppressBooleanAttributes: true,
-  tagValueProcessor: function(key, a) {
-    return a;
-  },
-  attributeValueProcessor: function(attrName, a) {
-    return a;
-  },
-  preserveOrder: false,
-  commentPropName: false,
-  unpairedTags: [],
-  entities: [
-    { regex: new RegExp("&", "g"), val: "&amp;" },//it must be on top
-    { regex: new RegExp(">", "g"), val: "&gt;" },
-    { regex: new RegExp("<", "g"), val: "&lt;" },
-    { regex: new RegExp("\'", "g"), val: "&apos;" },
-    { regex: new RegExp("\"", "g"), val: "&quot;" }
-  ],
-  processEntities: true,
-  stopNodes: [],
-  // transformTagName: false,
-  // transformAttributeName: false,
-  oneListGroup: false
-};
-
-function Builder(options) {
-  this.options = Object.assign({}, defaultOptions, options);
-  if (this.options.ignoreAttributes === true || this.options.attributesGroupName) {
-    this.isAttribute = function(/*a*/) {
-      return false;
-    };
-  } else {
-    this.ignoreAttributesFn = getIgnoreAttributesFn(this.options.ignoreAttributes)
-    this.attrPrefixLen = this.options.attributeNamePrefix.length;
-    this.isAttribute = isAttribute;
-  }
-
-  this.processTextOrObjNode = processTextOrObjNode
-
-  if (this.options.format) {
-    this.indentate = indentate;
-    this.tagEndChar = '>\n';
-    this.newLine = '\n';
-  } else {
-    this.indentate = function() {
-      return '';
-    };
-    this.tagEndChar = '>';
-    this.newLine = '';
-  }
-}
-
-Builder.prototype.build = function(jObj) {
-  if(this.options.preserveOrder){
-    return buildFromOrderedJs(jObj, this.options);
-  }else {
-    if(Array.isArray(jObj) && this.options.arrayNodeName && this.options.arrayNodeName.length > 1){
-      jObj = {
-        [this.options.arrayNodeName] : jObj
-      }
-    }
-    return this.j2x(jObj, 0, []).val;
-  }
-};
-
-Builder.prototype.j2x = function(jObj, level, ajPath) {
-  let attrStr = '';
-  let val = '';
-  const jPath = ajPath.join('.')
-  for (let key in jObj) {
-    if(!Object.prototype.hasOwnProperty.call(jObj, key)) continue;
-    if (typeof jObj[key] === 'undefined') {
-      // supress undefined node only if it is not an attribute
-      if (this.isAttribute(key)) {
-        val += '';
-      }
-    } else if (jObj[key] === null) {
-      // null attribute should be ignored by the attribute list, but should not cause the tag closing
-      if (this.isAttribute(key)) {
-        val += '';
-      } else if (key[0] === '?') {
-        val += this.indentate(level) + '<' + key + '?' + this.tagEndChar;
-      } else {
-        val += this.indentate(level) + '<' + key + '/' + this.tagEndChar;
-      }
-      // val += this.indentate(level) + '<' + key + '/' + this.tagEndChar;
-    } else if (jObj[key] instanceof Date) {
-      val += this.buildTextValNode(jObj[key], key, '', level);
-    } else if (typeof jObj[key] !== 'object') {
-      //premitive type
-      const attr = this.isAttribute(key);
-      if (attr && !this.ignoreAttributesFn(attr, jPath)) {
-        attrStr += this.buildAttrPairStr(attr, '' + jObj[key]);
-      } else if (!attr) {
-        //tag value
-        if (key === this.options.textNodeName) {
-          let newval = this.options.tagValueProcessor(key, '' + jObj[key]);
-          val += this.replaceEntitiesValue(newval);
-        } else {
-          val += this.buildTextValNode(jObj[key], key, '', level);
-        }
-      }
-    } else if (Array.isArray(jObj[key])) {
-      //repeated nodes
-      const arrLen = jObj[key].length;
-      let listTagVal = "";
-      let listTagAttr = "";
-      for (let j = 0; j < arrLen; j++) {
-        const item = jObj[key][j];
-        if (typeof item === 'undefined') {
-          // supress undefined node
-        } else if (item === null) {
-          if(key[0] === "?") val += this.indentate(level) + '<' + key + '?' + this.tagEndChar;
-          else val += this.indentate(level) + '<' + key + '/' + this.tagEndChar;
-          // val += this.indentate(level) + '<' + key + '/' + this.tagEndChar;
-        } else if (typeof item === 'object') {
-          if(this.options.oneListGroup){
-            const result = this.j2x(item, level + 1, ajPath.concat(key));
-            listTagVal += result.val;
-            if (this.options.attributesGroupName && item.hasOwnProperty(this.options.attributesGroupName)) {
-              listTagAttr += result.attrStr
-            }
-          }else{
-            listTagVal += this.processTextOrObjNode(item, key, level, ajPath)
-          }
-        } else {
-          if (this.options.oneListGroup) {
-            let textValue = this.options.tagValueProcessor(key, item);
-            textValue = this.replaceEntitiesValue(textValue);
-            listTagVal += textValue;
-          } else {
-            listTagVal += this.buildTextValNode(item, key, '', level);
-          }
-        }
-      }
-      if(this.options.oneListGroup){
-        listTagVal = this.buildObjectNode(listTagVal, key, listTagAttr, level);
-      }
-      val += listTagVal;
-    } else {
-      //nested node
-      if (this.options.attributesGroupName && key === this.options.attributesGroupName) {
-        const Ks = Object.keys(jObj[key]);
-        const L = Ks.length;
-        for (let j = 0; j < L; j++) {
-          attrStr += this.buildAttrPairStr(Ks[j], '' + jObj[key][Ks[j]]);
-        }
-      } else {
-        val += this.processTextOrObjNode(jObj[key], key, level, ajPath)
-      }
-    }
-  }
-  return {attrStr: attrStr, val: val};
-};
-
-Builder.prototype.buildAttrPairStr = function(attrName, val){
-  val = this.options.attributeValueProcessor(attrName, '' + val);
-  val = this.replaceEntitiesValue(val);
-  if (this.options.suppressBooleanAttributes && val === "true") {
-    return ' ' + attrName;
-  } else return ' ' + attrName + '="' + val + '"';
-}
-
-function processTextOrObjNode (object, key, level, ajPath) {
-  const result = this.j2x(object, level + 1, ajPath.concat(key));
-  if (object[this.options.textNodeName] !== undefined && Object.keys(object).length === 1) {
-    return this.buildTextValNode(object[this.options.textNodeName], key, result.attrStr, level);
-  } else {
-    return this.buildObjectNode(result.val, key, result.attrStr, level);
-  }
-}
-
-Builder.prototype.buildObjectNode = function(val, key, attrStr, level) {
-  if(val === ""){
-    if(key[0] === "?") return  this.indentate(level) + '<' + key + attrStr+ '?' + this.tagEndChar;
-    else {
-      return this.indentate(level) + '<' + key + attrStr + this.closeTag(key) + this.tagEndChar;
-    }
-  }else{
-
-    let tagEndExp = '</' + key + this.tagEndChar;
-    let piClosingChar = "";
-    
-    if(key[0] === "?") {
-      piClosingChar = "?";
-      tagEndExp = "";
-    }
-  
-    // attrStr is an empty string in case the attribute came as undefined or null
-    if ((attrStr || attrStr === '') && val.indexOf('<') === -1) {
-      return ( this.indentate(level) + '<' +  key + attrStr + piClosingChar + '>' + val + tagEndExp );
-    } else if (this.options.commentPropName !== false && key === this.options.commentPropName && piClosingChar.length === 0) {
-      return this.indentate(level) + `<!--${val}-->` + this.newLine;
-    }else {
-      return (
-        this.indentate(level) + '<' + key + attrStr + piClosingChar + this.tagEndChar +
-        val +
-        this.indentate(level) + tagEndExp    );
-    }
-  }
-}
-
-Builder.prototype.closeTag = function(key){
-  let closeTag = "";
-  if(this.options.unpairedTags.indexOf(key) !== -1){ //unpaired
-    if(!this.options.suppressUnpairedNode) closeTag = "/"
-  }else if(this.options.suppressEmptyNode){ //empty
-    closeTag = "/";
-  }else{
-    closeTag = `></${key}`
-  }
-  return closeTag;
-}
-
-function buildEmptyObjNode(val, key, attrStr, level) {
-  if (val !== '') {
-    return this.buildObjectNode(val, key, attrStr, level);
-  } else {
-    if(key[0] === "?") return  this.indentate(level) + '<' + key + attrStr+ '?' + this.tagEndChar;
-    else {
-      return  this.indentate(level) + '<' + key + attrStr + '/' + this.tagEndChar;
-      // return this.buildTagStr(level,key, attrStr);
-    }
-  }
-}
-
-Builder.prototype.buildTextValNode = function(val, key, attrStr, level) {
-  if (this.options.cdataPropName !== false && key === this.options.cdataPropName) {
-    return this.indentate(level) + `<![CDATA[${val}]]>` +  this.newLine;
-  }else if (this.options.commentPropName !== false && key === this.options.commentPropName) {
-    return this.indentate(level) + `<!--${val}-->` +  this.newLine;
-  }else if(key[0] === "?") {//PI tag
-    return  this.indentate(level) + '<' + key + attrStr+ '?' + this.tagEndChar; 
-  }else{
-    let textValue = this.options.tagValueProcessor(key, val);
-    textValue = this.replaceEntitiesValue(textValue);
-  
-    if( textValue === ''){
-      return this.indentate(level) + '<' + key + attrStr + this.closeTag(key) + this.tagEndChar;
-    }else{
-      return this.indentate(level) + '<' + key + attrStr + '>' +
-         textValue +
-        '</' + key + this.tagEndChar;
-    }
-  }
-}
-
-Builder.prototype.replaceEntitiesValue = function(textValue){
-  if(textValue && textValue.length > 0 && this.options.processEntities){
-    for (let i=0; i<this.options.entities.length; i++) {
-      const entity = this.options.entities[i];
-      textValue = textValue.replace(entity.regex, entity.val);
-    }
-  }
-  return textValue;
-}
-
-function indentate(level) {
-  return this.options.indentBy.repeat(level);
-}
-
-function isAttribute(name /*, options*/) {
-  if (name.startsWith(this.options.attributeNamePrefix) && name !== this.options.textNodeName) {
-    return name.substr(this.attrPrefixLen);
-  } else {
-    return false;
-  }
-}
-
-module.exports = Builder;
-
-
-/***/ }),
-
-/***/ 3997:
-/***/ ((module) => {
-
-const EOL = "\n";
-
-/**
- * 
- * @param {array} jArray 
- * @param {any} options 
- * @returns 
- */
-function toXml(jArray, options) {
-    let indentation = "";
-    if (options.format && options.indentBy.length > 0) {
-        indentation = EOL;
-    }
-    return arrToStr(jArray, options, "", indentation);
-}
-
-function arrToStr(arr, options, jPath, indentation) {
-    let xmlStr = "";
-    let isPreviousElementTag = false;
-
-    for (let i = 0; i < arr.length; i++) {
-        const tagObj = arr[i];
-        const tagName = propName(tagObj);
-        if(tagName === undefined) continue;
-
-        let newJPath = "";
-        if (jPath.length === 0) newJPath = tagName
-        else newJPath = `${jPath}.${tagName}`;
-
-        if (tagName === options.textNodeName) {
-            let tagText = tagObj[tagName];
-            if (!isStopNode(newJPath, options)) {
-                tagText = options.tagValueProcessor(tagName, tagText);
-                tagText = replaceEntitiesValue(tagText, options);
-            }
-            if (isPreviousElementTag) {
-                xmlStr += indentation;
-            }
-            xmlStr += tagText;
-            isPreviousElementTag = false;
-            continue;
-        } else if (tagName === options.cdataPropName) {
-            if (isPreviousElementTag) {
-                xmlStr += indentation;
-            }
-            xmlStr += `<![CDATA[${tagObj[tagName][0][options.textNodeName]}]]>`;
-            isPreviousElementTag = false;
-            continue;
-        } else if (tagName === options.commentPropName) {
-            xmlStr += indentation + `<!--${tagObj[tagName][0][options.textNodeName]}-->`;
-            isPreviousElementTag = true;
-            continue;
-        } else if (tagName[0] === "?") {
-            const attStr = attr_to_str(tagObj[":@"], options);
-            const tempInd = tagName === "?xml" ? "" : indentation;
-            let piTextNodeName = tagObj[tagName][0][options.textNodeName];
-            piTextNodeName = piTextNodeName.length !== 0 ? " " + piTextNodeName : ""; //remove extra spacing
-            xmlStr += tempInd + `<${tagName}${piTextNodeName}${attStr}?>`;
-            isPreviousElementTag = true;
-            continue;
-        }
-        let newIdentation = indentation;
-        if (newIdentation !== "") {
-            newIdentation += options.indentBy;
-        }
-        const attStr = attr_to_str(tagObj[":@"], options);
-        const tagStart = indentation + `<${tagName}${attStr}`;
-        const tagValue = arrToStr(tagObj[tagName], options, newJPath, newIdentation);
-        if (options.unpairedTags.indexOf(tagName) !== -1) {
-            if (options.suppressUnpairedNode) xmlStr += tagStart + ">";
-            else xmlStr += tagStart + "/>";
-        } else if ((!tagValue || tagValue.length === 0) && options.suppressEmptyNode) {
-            xmlStr += tagStart + "/>";
-        } else if (tagValue && tagValue.endsWith(">")) {
-            xmlStr += tagStart + `>${tagValue}${indentation}</${tagName}>`;
-        } else {
-            xmlStr += tagStart + ">";
-            if (tagValue && indentation !== "" && (tagValue.includes("/>") || tagValue.includes("</"))) {
-                xmlStr += indentation + options.indentBy + tagValue + indentation;
-            } else {
-                xmlStr += tagValue;
-            }
-            xmlStr += `</${tagName}>`;
-        }
-        isPreviousElementTag = true;
-    }
-
-    return xmlStr;
-}
-
-function propName(obj) {
-    const keys = Object.keys(obj);
-    for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-        if(!obj.hasOwnProperty(key)) continue;
-        if (key !== ":@") return key;
-    }
-}
-
-function attr_to_str(attrMap, options) {
-    let attrStr = "";
-    if (attrMap && !options.ignoreAttributes) {
-        for (let attr in attrMap) {
-            if(!attrMap.hasOwnProperty(attr)) continue;
-            let attrVal = options.attributeValueProcessor(attr, attrMap[attr]);
-            attrVal = replaceEntitiesValue(attrVal, options);
-            if (attrVal === true && options.suppressBooleanAttributes) {
-                attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}`;
-            } else {
-                attrStr += ` ${attr.substr(options.attributeNamePrefix.length)}="${attrVal}"`;
-            }
-        }
-    }
-    return attrStr;
-}
-
-function isStopNode(jPath, options) {
-    jPath = jPath.substr(0, jPath.length - options.textNodeName.length - 1);
-    let tagName = jPath.substr(jPath.lastIndexOf(".") + 1);
-    for (let index in options.stopNodes) {
-        if (options.stopNodes[index] === jPath || options.stopNodes[index] === "*." + tagName) return true;
-    }
-    return false;
-}
-
-function replaceEntitiesValue(textValue, options) {
-    if (textValue && textValue.length > 0 && options.processEntities) {
-        for (let i = 0; i < options.entities.length; i++) {
-            const entity = options.entities[i];
-            textValue = textValue.replace(entity.regex, entity.val);
-        }
-    }
-    return textValue;
-}
-module.exports = toXml;
-
-
-/***/ }),
-
-/***/ 151:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const util = __nccwpck_require__(7019);
-
-//TODO: handle comments
-function readDocType(xmlData, i){
-    
-    const entities = {};
-    if( xmlData[i + 3] === 'O' &&
-         xmlData[i + 4] === 'C' &&
-         xmlData[i + 5] === 'T' &&
-         xmlData[i + 6] === 'Y' &&
-         xmlData[i + 7] === 'P' &&
-         xmlData[i + 8] === 'E')
-    {    
-        i = i+9;
-        let angleBracketsCount = 1;
-        let hasBody = false, comment = false;
-        let exp = "";
-        for(;i<xmlData.length;i++){
-            if (xmlData[i] === '<' && !comment) { //Determine the tag type
-                if( hasBody && isEntity(xmlData, i)){
-                    i += 7; 
-                    [entityName, val,i] = readEntityExp(xmlData,i+1);
-                    if(val.indexOf("&") === -1) //Parameter entities are not supported
-                        entities[ validateEntityName(entityName) ] = {
-                            regx : RegExp( `&${entityName};`,"g"),
-                            val: val
-                        };
-                }
-                else if( hasBody && isElement(xmlData, i))  i += 8;//Not supported
-                else if( hasBody && isAttlist(xmlData, i))  i += 8;//Not supported
-                else if( hasBody && isNotation(xmlData, i)) i += 9;//Not supported
-                else if( isComment)                         comment = true;
-                else                                        throw new Error("Invalid DOCTYPE");
-
-                angleBracketsCount++;
-                exp = "";
-            } else if (xmlData[i] === '>') { //Read tag content
-                if(comment){
-                    if( xmlData[i - 1] === "-" && xmlData[i - 2] === "-"){
-                        comment = false;
-                        angleBracketsCount--;
-                    }
-                }else{
-                    angleBracketsCount--;
-                }
-                if (angleBracketsCount === 0) {
-                  break;
-                }
-            }else if( xmlData[i] === '['){
-                hasBody = true;
-            }else{
-                exp += xmlData[i];
-            }
-        }
-        if(angleBracketsCount !== 0){
-            throw new Error(`Unclosed DOCTYPE`);
-        }
-    }else{
-        throw new Error(`Invalid Tag instead of DOCTYPE`);
-    }
-    return {entities, i};
-}
-
-function readEntityExp(xmlData,i){
-    //External entities are not supported
-    //    <!ENTITY ext SYSTEM "http://normal-website.com" >
-
-    //Parameter entities are not supported
-    //    <!ENTITY entityname "&anotherElement;">
-
-    //Internal entities are supported
-    //    <!ENTITY entityname "replacement text">
-    
-    //read EntityName
-    let entityName = "";
-    for (; i < xmlData.length && (xmlData[i] !== "'" && xmlData[i] !== '"' ); i++) {
-        // if(xmlData[i] === " ") continue;
-        // else 
-        entityName += xmlData[i];
-    }
-    entityName = entityName.trim();
-    if(entityName.indexOf(" ") !== -1) throw new Error("External entites are not supported");
-
-    //read Entity Value
-    const startChar = xmlData[i++];
-    let val = ""
-    for (; i < xmlData.length && xmlData[i] !== startChar ; i++) {
-        val += xmlData[i];
-    }
-    return [entityName, val, i];
-}
-
-function isComment(xmlData, i){
-    if(xmlData[i+1] === '!' &&
-    xmlData[i+2] === '-' &&
-    xmlData[i+3] === '-') return true
-    return false
-}
-function isEntity(xmlData, i){
-    if(xmlData[i+1] === '!' &&
-    xmlData[i+2] === 'E' &&
-    xmlData[i+3] === 'N' &&
-    xmlData[i+4] === 'T' &&
-    xmlData[i+5] === 'I' &&
-    xmlData[i+6] === 'T' &&
-    xmlData[i+7] === 'Y') return true
-    return false
-}
-function isElement(xmlData, i){
-    if(xmlData[i+1] === '!' &&
-    xmlData[i+2] === 'E' &&
-    xmlData[i+3] === 'L' &&
-    xmlData[i+4] === 'E' &&
-    xmlData[i+5] === 'M' &&
-    xmlData[i+6] === 'E' &&
-    xmlData[i+7] === 'N' &&
-    xmlData[i+8] === 'T') return true
-    return false
-}
-
-function isAttlist(xmlData, i){
-    if(xmlData[i+1] === '!' &&
-    xmlData[i+2] === 'A' &&
-    xmlData[i+3] === 'T' &&
-    xmlData[i+4] === 'T' &&
-    xmlData[i+5] === 'L' &&
-    xmlData[i+6] === 'I' &&
-    xmlData[i+7] === 'S' &&
-    xmlData[i+8] === 'T') return true
-    return false
-}
-function isNotation(xmlData, i){
-    if(xmlData[i+1] === '!' &&
-    xmlData[i+2] === 'N' &&
-    xmlData[i+3] === 'O' &&
-    xmlData[i+4] === 'T' &&
-    xmlData[i+5] === 'A' &&
-    xmlData[i+6] === 'T' &&
-    xmlData[i+7] === 'I' &&
-    xmlData[i+8] === 'O' &&
-    xmlData[i+9] === 'N') return true
-    return false
-}
-
-function validateEntityName(name){
-    if (util.isName(name))
-	return name;
-    else
-        throw new Error(`Invalid entity name ${name}`);
-}
-
-module.exports = readDocType;
-
-
-/***/ }),
-
-/***/ 4769:
-/***/ ((__unused_webpack_module, exports) => {
-
-
-const defaultOptions = {
-    preserveOrder: false,
-    attributeNamePrefix: '@_',
-    attributesGroupName: false,
-    textNodeName: '#text',
-    ignoreAttributes: true,
-    removeNSPrefix: false, // remove NS from tag name or attribute name if true
-    allowBooleanAttributes: false, //a tag can have attributes without any value
-    //ignoreRootElement : false,
-    parseTagValue: true,
-    parseAttributeValue: false,
-    trimValues: true, //Trim string values of tag and attributes
-    cdataPropName: false,
-    numberParseOptions: {
-      hex: true,
-      leadingZeros: true,
-      eNotation: true
-    },
-    tagValueProcessor: function(tagName, val) {
-      return val;
-    },
-    attributeValueProcessor: function(attrName, val) {
-      return val;
-    },
-    stopNodes: [], //nested tags will not be parsed even for errors
-    alwaysCreateTextNode: false,
-    isArray: () => false,
-    commentPropName: false,
-    unpairedTags: [],
-    processEntities: true,
-    htmlEntities: false,
-    ignoreDeclaration: false,
-    ignorePiTags: false,
-    transformTagName: false,
-    transformAttributeName: false,
-    updateTag: function(tagName, jPath, attrs){
-      return tagName
-    },
-    // skipEmptyListItem: false
-};
-   
-const buildOptions = function(options) {
-    return Object.assign({}, defaultOptions, options);
-};
-
-exports.buildOptions = buildOptions;
-exports.defaultOptions = defaultOptions;
-
-/***/ }),
-
-/***/ 3017:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-
-///@ts-check
-
-const util = __nccwpck_require__(7019);
-const xmlNode = __nccwpck_require__(9307);
-const readDocType = __nccwpck_require__(151);
-const toNumber = __nccwpck_require__(6496);
-const getIgnoreAttributesFn = __nccwpck_require__(812)
-
-// const regx =
-//   '<((!\\[CDATA\\[([\\s\\S]*?)(]]>))|((NAME:)?(NAME))([^>]*)>|((\\/)(NAME)\\s*>))([^<]*)'
-//   .replace(/NAME/g, util.nameRegexp);
-
-//const tagsRegx = new RegExp("<(\\/?[\\w:\\-\._]+)([^>]*)>(\\s*"+cdataRegx+")*([^<]+)?","g");
-//const tagsRegx = new RegExp("<(\\/?)((\\w*:)?([\\w:\\-\._]+))([^>]*)>([^<]*)("+cdataRegx+"([^<]*))*([^<]+)?","g");
-
-class OrderedObjParser{
-  constructor(options){
-    this.options = options;
-    this.currentNode = null;
-    this.tagsNodeStack = [];
-    this.docTypeEntities = {};
-    this.lastEntities = {
-      "apos" : { regex: /&(apos|#39|#x27);/g, val : "'"},
-      "gt" : { regex: /&(gt|#62|#x3E);/g, val : ">"},
-      "lt" : { regex: /&(lt|#60|#x3C);/g, val : "<"},
-      "quot" : { regex: /&(quot|#34|#x22);/g, val : "\""},
-    };
-    this.ampEntity = { regex: /&(amp|#38|#x26);/g, val : "&"};
-    this.htmlEntities = {
-      "space": { regex: /&(nbsp|#160);/g, val: " " },
-      // "lt" : { regex: /&(lt|#60);/g, val: "<" },
-      // "gt" : { regex: /&(gt|#62);/g, val: ">" },
-      // "amp" : { regex: /&(amp|#38);/g, val: "&" },
-      // "quot" : { regex: /&(quot|#34);/g, val: "\"" },
-      // "apos" : { regex: /&(apos|#39);/g, val: "'" },
-      "cent" : { regex: /&(cent|#162);/g, val: "¢" },
-      "pound" : { regex: /&(pound|#163);/g, val: "£" },
-      "yen" : { regex: /&(yen|#165);/g, val: "¥" },
-      "euro" : { regex: /&(euro|#8364);/g, val: "€" },
-      "copyright" : { regex: /&(copy|#169);/g, val: "©" },
-      "reg" : { regex: /&(reg|#174);/g, val: "®" },
-      "inr" : { regex: /&(inr|#8377);/g, val: "₹" },
-      "num_dec": { regex: /&#([0-9]{1,7});/g, val : (_, str) => String.fromCharCode(Number.parseInt(str, 10)) },
-      "num_hex": { regex: /&#x([0-9a-fA-F]{1,6});/g, val : (_, str) => String.fromCharCode(Number.parseInt(str, 16)) },
-    };
-    this.addExternalEntities = addExternalEntities;
-    this.parseXml = parseXml;
-    this.parseTextData = parseTextData;
-    this.resolveNameSpace = resolveNameSpace;
-    this.buildAttributesMap = buildAttributesMap;
-    this.isItStopNode = isItStopNode;
-    this.replaceEntitiesValue = replaceEntitiesValue;
-    this.readStopNodeData = readStopNodeData;
-    this.saveTextToParentTag = saveTextToParentTag;
-    this.addChild = addChild;
-    this.ignoreAttributesFn = getIgnoreAttributesFn(this.options.ignoreAttributes)
-  }
-
-}
-
-function addExternalEntities(externalEntities){
-  const entKeys = Object.keys(externalEntities);
-  for (let i = 0; i < entKeys.length; i++) {
-    const ent = entKeys[i];
-    this.lastEntities[ent] = {
-       regex: new RegExp("&"+ent+";","g"),
-       val : externalEntities[ent]
-    }
-  }
-}
-
-/**
- * @param {string} val
- * @param {string} tagName
- * @param {string} jPath
- * @param {boolean} dontTrim
- * @param {boolean} hasAttributes
- * @param {boolean} isLeafNode
- * @param {boolean} escapeEntities
- */
-function parseTextData(val, tagName, jPath, dontTrim, hasAttributes, isLeafNode, escapeEntities) {
-  if (val !== undefined) {
-    if (this.options.trimValues && !dontTrim) {
-      val = val.trim();
-    }
-    if(val.length > 0){
-      if(!escapeEntities) val = this.replaceEntitiesValue(val);
-      
-      const newval = this.options.tagValueProcessor(tagName, val, jPath, hasAttributes, isLeafNode);
-      if(newval === null || newval === undefined){
-        //don't parse
-        return val;
-      }else if(typeof newval !== typeof val || newval !== val){
-        //overwrite
-        return newval;
-      }else if(this.options.trimValues){
-        return parseValue(val, this.options.parseTagValue, this.options.numberParseOptions);
-      }else{
-        const trimmedVal = val.trim();
-        if(trimmedVal === val){
-          return parseValue(val, this.options.parseTagValue, this.options.numberParseOptions);
-        }else{
-          return val;
-        }
-      }
-    }
-  }
-}
-
-function resolveNameSpace(tagname) {
-  if (this.options.removeNSPrefix) {
-    const tags = tagname.split(':');
-    const prefix = tagname.charAt(0) === '/' ? '/' : '';
-    if (tags[0] === 'xmlns') {
-      return '';
-    }
-    if (tags.length === 2) {
-      tagname = prefix + tags[1];
-    }
-  }
-  return tagname;
-}
-
-//TODO: change regex to capture NS
-//const attrsRegx = new RegExp("([\\w\\-\\.\\:]+)\\s*=\\s*(['\"])((.|\n)*?)\\2","gm");
-const attrsRegx = new RegExp('([^\\s=]+)\\s*(=\\s*([\'"])([\\s\\S]*?)\\3)?', 'gm');
-
-function buildAttributesMap(attrStr, jPath, tagName) {
-  if (this.options.ignoreAttributes !== true && typeof attrStr === 'string') {
-    // attrStr = attrStr.replace(/\r?\n/g, ' ');
-    //attrStr = attrStr || attrStr.trim();
-
-    const matches = util.getAllMatches(attrStr, attrsRegx);
-    const len = matches.length; //don't make it inline
-    const attrs = {};
-    for (let i = 0; i < len; i++) {
-      const attrName = this.resolveNameSpace(matches[i][1]);
-      if (this.ignoreAttributesFn(attrName, jPath)) {
-        continue
-      }
-      let oldVal = matches[i][4];
-      let aName = this.options.attributeNamePrefix + attrName;
-      if (attrName.length) {
-        if (this.options.transformAttributeName) {
-          aName = this.options.transformAttributeName(aName);
-        }
-        if(aName === "__proto__") aName  = "#__proto__";
-        if (oldVal !== undefined) {
-          if (this.options.trimValues) {
-            oldVal = oldVal.trim();
-          }
-          oldVal = this.replaceEntitiesValue(oldVal);
-          const newVal = this.options.attributeValueProcessor(attrName, oldVal, jPath);
-          if(newVal === null || newVal === undefined){
-            //don't parse
-            attrs[aName] = oldVal;
-          }else if(typeof newVal !== typeof oldVal || newVal !== oldVal){
-            //overwrite
-            attrs[aName] = newVal;
-          }else{
-            //parse
-            attrs[aName] = parseValue(
-              oldVal,
-              this.options.parseAttributeValue,
-              this.options.numberParseOptions
-            );
-          }
-        } else if (this.options.allowBooleanAttributes) {
-          attrs[aName] = true;
-        }
-      }
-    }
-    if (!Object.keys(attrs).length) {
-      return;
-    }
-    if (this.options.attributesGroupName) {
-      const attrCollection = {};
-      attrCollection[this.options.attributesGroupName] = attrs;
-      return attrCollection;
-    }
-    return attrs
-  }
-}
-
-const parseXml = function(xmlData) {
-  xmlData = xmlData.replace(/\r\n?/g, "\n"); //TODO: remove this line
-  const xmlObj = new xmlNode('!xml');
-  let currentNode = xmlObj;
-  let textData = "";
-  let jPath = "";
-  for(let i=0; i< xmlData.length; i++){//for each char in XML data
-    const ch = xmlData[i];
-    if(ch === '<'){
-      // const nextIndex = i+1;
-      // const _2ndChar = xmlData[nextIndex];
-      if( xmlData[i+1] === '/') {//Closing Tag
-        const closeIndex = findClosingIndex(xmlData, ">", i, "Closing Tag is not closed.")
-        let tagName = xmlData.substring(i+2,closeIndex).trim();
-
-        if(this.options.removeNSPrefix){
-          const colonIndex = tagName.indexOf(":");
-          if(colonIndex !== -1){
-            tagName = tagName.substr(colonIndex+1);
-          }
-        }
-
-        if(this.options.transformTagName) {
-          tagName = this.options.transformTagName(tagName);
-        }
-
-        if(currentNode){
-          textData = this.saveTextToParentTag(textData, currentNode, jPath);
-        }
-
-        //check if last tag of nested tag was unpaired tag
-        const lastTagName = jPath.substring(jPath.lastIndexOf(".")+1);
-        if(tagName && this.options.unpairedTags.indexOf(tagName) !== -1 ){
-          throw new Error(`Unpaired tag can not be used as closing tag: </${tagName}>`);
-        }
-        let propIndex = 0
-        if(lastTagName && this.options.unpairedTags.indexOf(lastTagName) !== -1 ){
-          propIndex = jPath.lastIndexOf('.', jPath.lastIndexOf('.')-1)
-          this.tagsNodeStack.pop();
-        }else{
-          propIndex = jPath.lastIndexOf(".");
-        }
-        jPath = jPath.substring(0, propIndex);
-
-        currentNode = this.tagsNodeStack.pop();//avoid recursion, set the parent tag scope
-        textData = "";
-        i = closeIndex;
-      } else if( xmlData[i+1] === '?') {
-
-        let tagData = readTagExp(xmlData,i, false, "?>");
-        if(!tagData) throw new Error("Pi Tag is not closed.");
-
-        textData = this.saveTextToParentTag(textData, currentNode, jPath);
-        if( (this.options.ignoreDeclaration && tagData.tagName === "?xml") || this.options.ignorePiTags){
-
-        }else{
-  
-          const childNode = new xmlNode(tagData.tagName);
-          childNode.add(this.options.textNodeName, "");
-          
-          if(tagData.tagName !== tagData.tagExp && tagData.attrExpPresent){
-            childNode[":@"] = this.buildAttributesMap(tagData.tagExp, jPath, tagData.tagName);
-          }
-          this.addChild(currentNode, childNode, jPath)
-
-        }
-
-
-        i = tagData.closeIndex + 1;
-      } else if(xmlData.substr(i + 1, 3) === '!--') {
-        const endIndex = findClosingIndex(xmlData, "-->", i+4, "Comment is not closed.")
-        if(this.options.commentPropName){
-          const comment = xmlData.substring(i + 4, endIndex - 2);
-
-          textData = this.saveTextToParentTag(textData, currentNode, jPath);
-
-          currentNode.add(this.options.commentPropName, [ { [this.options.textNodeName] : comment } ]);
-        }
-        i = endIndex;
-      } else if( xmlData.substr(i + 1, 2) === '!D') {
-        const result = readDocType(xmlData, i);
-        this.docTypeEntities = result.entities;
-        i = result.i;
-      }else if(xmlData.substr(i + 1, 2) === '![') {
-        const closeIndex = findClosingIndex(xmlData, "]]>", i, "CDATA is not closed.") - 2;
-        const tagExp = xmlData.substring(i + 9,closeIndex);
-
-        textData = this.saveTextToParentTag(textData, currentNode, jPath);
-
-        let val = this.parseTextData(tagExp, currentNode.tagname, jPath, true, false, true, true);
-        if(val == undefined) val = "";
-
-        //cdata should be set even if it is 0 length string
-        if(this.options.cdataPropName){
-          currentNode.add(this.options.cdataPropName, [ { [this.options.textNodeName] : tagExp } ]);
-        }else{
-          currentNode.add(this.options.textNodeName, val);
-        }
-        
-        i = closeIndex + 2;
-      }else {//Opening tag
-        let result = readTagExp(xmlData,i, this.options.removeNSPrefix);
-        let tagName= result.tagName;
-        const rawTagName = result.rawTagName;
-        let tagExp = result.tagExp;
-        let attrExpPresent = result.attrExpPresent;
-        let closeIndex = result.closeIndex;
-
-        if (this.options.transformTagName) {
-          tagName = this.options.transformTagName(tagName);
-        }
-        
-        //save text as child node
-        if (currentNode && textData) {
-          if(currentNode.tagname !== '!xml'){
-            //when nested tag is found
-            textData = this.saveTextToParentTag(textData, currentNode, jPath, false);
-          }
-        }
-
-        //check if last tag was unpaired tag
-        const lastTag = currentNode;
-        if(lastTag && this.options.unpairedTags.indexOf(lastTag.tagname) !== -1 ){
-          currentNode = this.tagsNodeStack.pop();
-          jPath = jPath.substring(0, jPath.lastIndexOf("."));
-        }
-        if(tagName !== xmlObj.tagname){
-          jPath += jPath ? "." + tagName : tagName;
-        }
-        if (this.isItStopNode(this.options.stopNodes, jPath, tagName)) {
-          let tagContent = "";
-          //self-closing tag
-          if(tagExp.length > 0 && tagExp.lastIndexOf("/") === tagExp.length - 1){
-            if(tagName[tagName.length - 1] === "/"){ //remove trailing '/'
-              tagName = tagName.substr(0, tagName.length - 1);
-              jPath = jPath.substr(0, jPath.length - 1);
-              tagExp = tagName;
-            }else{
-              tagExp = tagExp.substr(0, tagExp.length - 1);
-            }
-            i = result.closeIndex;
-          }
-          //unpaired tag
-          else if(this.options.unpairedTags.indexOf(tagName) !== -1){
-            
-            i = result.closeIndex;
-          }
-          //normal tag
-          else{
-            //read until closing tag is found
-            const result = this.readStopNodeData(xmlData, rawTagName, closeIndex + 1);
-            if(!result) throw new Error(`Unexpected end of ${rawTagName}`);
-            i = result.i;
-            tagContent = result.tagContent;
-          }
-
-          const childNode = new xmlNode(tagName);
-          if(tagName !== tagExp && attrExpPresent){
-            childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
-          }
-          if(tagContent) {
-            tagContent = this.parseTextData(tagContent, tagName, jPath, true, attrExpPresent, true, true);
-          }
-          
-          jPath = jPath.substr(0, jPath.lastIndexOf("."));
-          childNode.add(this.options.textNodeName, tagContent);
-          
-          this.addChild(currentNode, childNode, jPath)
-        }else{
-  //selfClosing tag
-          if(tagExp.length > 0 && tagExp.lastIndexOf("/") === tagExp.length - 1){
-            if(tagName[tagName.length - 1] === "/"){ //remove trailing '/'
-              tagName = tagName.substr(0, tagName.length - 1);
-              jPath = jPath.substr(0, jPath.length - 1);
-              tagExp = tagName;
-            }else{
-              tagExp = tagExp.substr(0, tagExp.length - 1);
-            }
-            
-            if(this.options.transformTagName) {
-              tagName = this.options.transformTagName(tagName);
-            }
-
-            const childNode = new xmlNode(tagName);
-            if(tagName !== tagExp && attrExpPresent){
-              childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
-            }
-            this.addChild(currentNode, childNode, jPath)
-            jPath = jPath.substr(0, jPath.lastIndexOf("."));
-          }
-    //opening tag
-          else{
-            const childNode = new xmlNode( tagName);
-            this.tagsNodeStack.push(currentNode);
-            
-            if(tagName !== tagExp && attrExpPresent){
-              childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
-            }
-            this.addChild(currentNode, childNode, jPath)
-            currentNode = childNode;
-          }
-          textData = "";
-          i = closeIndex;
-        }
-      }
-    }else{
-      textData += xmlData[i];
-    }
-  }
-  return xmlObj.child;
-}
-
-function addChild(currentNode, childNode, jPath){
-  const result = this.options.updateTag(childNode.tagname, jPath, childNode[":@"])
-  if(result === false){
-  }else if(typeof result === "string"){
-    childNode.tagname = result
-    currentNode.addChild(childNode);
-  }else{
-    currentNode.addChild(childNode);
-  }
-}
-
-const replaceEntitiesValue = function(val){
-
-  if(this.options.processEntities){
-    for(let entityName in this.docTypeEntities){
-      const entity = this.docTypeEntities[entityName];
-      val = val.replace( entity.regx, entity.val);
-    }
-    for(let entityName in this.lastEntities){
-      const entity = this.lastEntities[entityName];
-      val = val.replace( entity.regex, entity.val);
-    }
-    if(this.options.htmlEntities){
-      for(let entityName in this.htmlEntities){
-        const entity = this.htmlEntities[entityName];
-        val = val.replace( entity.regex, entity.val);
-      }
-    }
-    val = val.replace( this.ampEntity.regex, this.ampEntity.val);
-  }
-  return val;
-}
-function saveTextToParentTag(textData, currentNode, jPath, isLeafNode) {
-  if (textData) { //store previously collected data as textNode
-    if(isLeafNode === undefined) isLeafNode = Object.keys(currentNode.child).length === 0
-    
-    textData = this.parseTextData(textData,
-      currentNode.tagname,
-      jPath,
-      false,
-      currentNode[":@"] ? Object.keys(currentNode[":@"]).length !== 0 : false,
-      isLeafNode);
-
-    if (textData !== undefined && textData !== "")
-      currentNode.add(this.options.textNodeName, textData);
-    textData = "";
-  }
-  return textData;
-}
-
-//TODO: use jPath to simplify the logic
-/**
- * 
- * @param {string[]} stopNodes 
- * @param {string} jPath
- * @param {string} currentTagName 
- */
-function isItStopNode(stopNodes, jPath, currentTagName){
-  const allNodesExp = "*." + currentTagName;
-  for (const stopNodePath in stopNodes) {
-    const stopNodeExp = stopNodes[stopNodePath];
-    if( allNodesExp === stopNodeExp || jPath === stopNodeExp  ) return true;
-  }
-  return false;
-}
-
-/**
- * Returns the tag Expression and where it is ending handling single-double quotes situation
- * @param {string} xmlData 
- * @param {number} i starting index
- * @returns 
- */
-function tagExpWithClosingIndex(xmlData, i, closingChar = ">"){
-  let attrBoundary;
-  let tagExp = "";
-  for (let index = i; index < xmlData.length; index++) {
-    let ch = xmlData[index];
-    if (attrBoundary) {
-        if (ch === attrBoundary) attrBoundary = "";//reset
-    } else if (ch === '"' || ch === "'") {
-        attrBoundary = ch;
-    } else if (ch === closingChar[0]) {
-      if(closingChar[1]){
-        if(xmlData[index + 1] === closingChar[1]){
-          return {
-            data: tagExp,
-            index: index
-          }
-        }
-      }else{
-        return {
-          data: tagExp,
-          index: index
-        }
-      }
-    } else if (ch === '\t') {
-      ch = " "
-    }
-    tagExp += ch;
-  }
-}
-
-function findClosingIndex(xmlData, str, i, errMsg){
-  const closingIndex = xmlData.indexOf(str, i);
-  if(closingIndex === -1){
-    throw new Error(errMsg)
-  }else{
-    return closingIndex + str.length - 1;
-  }
-}
-
-function readTagExp(xmlData,i, removeNSPrefix, closingChar = ">"){
-  const result = tagExpWithClosingIndex(xmlData, i+1, closingChar);
-  if(!result) return;
-  let tagExp = result.data;
-  const closeIndex = result.index;
-  const separatorIndex = tagExp.search(/\s/);
-  let tagName = tagExp;
-  let attrExpPresent = true;
-  if(separatorIndex !== -1){//separate tag name and attributes expression
-    tagName = tagExp.substring(0, separatorIndex);
-    tagExp = tagExp.substring(separatorIndex + 1).trimStart();
-  }
-
-  const rawTagName = tagName;
-  if(removeNSPrefix){
-    const colonIndex = tagName.indexOf(":");
-    if(colonIndex !== -1){
-      tagName = tagName.substr(colonIndex+1);
-      attrExpPresent = tagName !== result.data.substr(colonIndex + 1);
-    }
-  }
-
-  return {
-    tagName: tagName,
-    tagExp: tagExp,
-    closeIndex: closeIndex,
-    attrExpPresent: attrExpPresent,
-    rawTagName: rawTagName,
-  }
-}
-/**
- * find paired tag for a stop node
- * @param {string} xmlData 
- * @param {string} tagName 
- * @param {number} i 
- */
-function readStopNodeData(xmlData, tagName, i){
-  const startIndex = i;
-  // Starting at 1 since we already have an open tag
-  let openTagCount = 1;
-
-  for (; i < xmlData.length; i++) {
-    if( xmlData[i] === "<"){ 
-      if (xmlData[i+1] === "/") {//close tag
-          const closeIndex = findClosingIndex(xmlData, ">", i, `${tagName} is not closed`);
-          let closeTagName = xmlData.substring(i+2,closeIndex).trim();
-          if(closeTagName === tagName){
-            openTagCount--;
-            if (openTagCount === 0) {
-              return {
-                tagContent: xmlData.substring(startIndex, i),
-                i : closeIndex
-              }
-            }
-          }
-          i=closeIndex;
-        } else if(xmlData[i+1] === '?') { 
-          const closeIndex = findClosingIndex(xmlData, "?>", i+1, "StopNode is not closed.")
-          i=closeIndex;
-        } else if(xmlData.substr(i + 1, 3) === '!--') { 
-          const closeIndex = findClosingIndex(xmlData, "-->", i+3, "StopNode is not closed.")
-          i=closeIndex;
-        } else if(xmlData.substr(i + 1, 2) === '![') { 
-          const closeIndex = findClosingIndex(xmlData, "]]>", i, "StopNode is not closed.") - 2;
-          i=closeIndex;
-        } else {
-          const tagData = readTagExp(xmlData, i, '>')
-
-          if (tagData) {
-            const openTagName = tagData && tagData.tagName;
-            if (openTagName === tagName && tagData.tagExp[tagData.tagExp.length-1] !== "/") {
-              openTagCount++;
-            }
-            i=tagData.closeIndex;
-          }
-        }
-      }
-  }//end for loop
-}
-
-function parseValue(val, shouldParse, options) {
-  if (shouldParse && typeof val === 'string') {
-    //console.log(options)
-    const newval = val.trim();
-    if(newval === 'true' ) return true;
-    else if(newval === 'false' ) return false;
-    else return toNumber(val, options);
-  } else {
-    if (util.isExist(val)) {
-      return val;
-    } else {
-      return '';
-    }
-  }
-}
-
-
-module.exports = OrderedObjParser;
-
-
-/***/ }),
-
-/***/ 9844:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-const { buildOptions} = __nccwpck_require__(4769);
-const OrderedObjParser = __nccwpck_require__(3017);
-const { prettify} = __nccwpck_require__(7594);
-const validator = __nccwpck_require__(9433);
-
-class XMLParser{
-    
-    constructor(options){
-        this.externalEntities = {};
-        this.options = buildOptions(options);
-        
-    }
-    /**
-     * Parse XML dats to JS object 
-     * @param {string|Buffer} xmlData 
-     * @param {boolean|Object} validationOption 
-     */
-    parse(xmlData,validationOption){
-        if(typeof xmlData === "string"){
-        }else if( xmlData.toString){
-            xmlData = xmlData.toString();
-        }else{
-            throw new Error("XML data is accepted in String or Bytes[] form.")
-        }
-        if( validationOption){
-            if(validationOption === true) validationOption = {}; //validate with default options
-            
-            const result = validator.validate(xmlData, validationOption);
-            if (result !== true) {
-              throw Error( `${result.err.msg}:${result.err.line}:${result.err.col}` )
-            }
-          }
-        const orderedObjParser = new OrderedObjParser(this.options);
-        orderedObjParser.addExternalEntities(this.externalEntities);
-        const orderedResult = orderedObjParser.parseXml(xmlData);
-        if(this.options.preserveOrder || orderedResult === undefined) return orderedResult;
-        else return prettify(orderedResult, this.options);
-    }
-
-    /**
-     * Add Entity which is not by default supported by this library
-     * @param {string} key 
-     * @param {string} value 
-     */
-    addEntity(key, value){
-        if(value.indexOf("&") !== -1){
-            throw new Error("Entity value can't have '&'")
-        }else if(key.indexOf("&") !== -1 || key.indexOf(";") !== -1){
-            throw new Error("An entity must be set without '&' and ';'. Eg. use '#xD' for '&#xD;'")
-        }else if(value === "&"){
-            throw new Error("An entity with value '&' is not permitted");
-        }else{
-            this.externalEntities[key] = value;
-        }
-    }
-}
-
-module.exports = XMLParser;
-
-/***/ }),
-
-/***/ 7594:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-
-/**
- * 
- * @param {array} node 
- * @param {any} options 
- * @returns 
- */
-function prettify(node, options){
-  return compress( node, options);
-}
-
-/**
- * 
- * @param {array} arr 
- * @param {object} options 
- * @param {string} jPath 
- * @returns object
- */
-function compress(arr, options, jPath){
-  let text;
-  const compressedObj = {};
-  for (let i = 0; i < arr.length; i++) {
-    const tagObj = arr[i];
-    const property = propName(tagObj);
-    let newJpath = "";
-    if(jPath === undefined) newJpath = property;
-    else newJpath = jPath + "." + property;
-
-    if(property === options.textNodeName){
-      if(text === undefined) text = tagObj[property];
-      else text += "" + tagObj[property];
-    }else if(property === undefined){
-      continue;
-    }else if(tagObj[property]){
-      
-      let val = compress(tagObj[property], options, newJpath);
-      const isLeaf = isLeafTag(val, options);
-
-      if(tagObj[":@"]){
-        assignAttributes( val, tagObj[":@"], newJpath, options);
-      }else if(Object.keys(val).length === 1 && val[options.textNodeName] !== undefined && !options.alwaysCreateTextNode){
-        val = val[options.textNodeName];
-      }else if(Object.keys(val).length === 0){
-        if(options.alwaysCreateTextNode) val[options.textNodeName] = "";
-        else val = "";
-      }
-
-      if(compressedObj[property] !== undefined && compressedObj.hasOwnProperty(property)) {
-        if(!Array.isArray(compressedObj[property])) {
-            compressedObj[property] = [ compressedObj[property] ];
-        }
-        compressedObj[property].push(val);
-      }else{
-        //TODO: if a node is not an array, then check if it should be an array
-        //also determine if it is a leaf node
-        if (options.isArray(property, newJpath, isLeaf )) {
-          compressedObj[property] = [val];
-        }else{
-          compressedObj[property] = val;
-        }
-      }
-    }
-    
-  }
-  // if(text && text.length > 0) compressedObj[options.textNodeName] = text;
-  if(typeof text === "string"){
-    if(text.length > 0) compressedObj[options.textNodeName] = text;
-  }else if(text !== undefined) compressedObj[options.textNodeName] = text;
-  return compressedObj;
-}
-
-function propName(obj){
-  const keys = Object.keys(obj);
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    if(key !== ":@") return key;
-  }
-}
-
-function assignAttributes(obj, attrMap, jpath, options){
-  if (attrMap) {
-    const keys = Object.keys(attrMap);
-    const len = keys.length; //don't make it inline
-    for (let i = 0; i < len; i++) {
-      const atrrName = keys[i];
-      if (options.isArray(atrrName, jpath + "." + atrrName, true, true)) {
-        obj[atrrName] = [ attrMap[atrrName] ];
-      } else {
-        obj[atrrName] = attrMap[atrrName];
-      }
-    }
-  }
-}
-
-function isLeafTag(obj, options){
-  const { textNodeName } = options;
-  const propCount = Object.keys(obj).length;
-  
-  if (propCount === 0) {
-    return true;
-  }
-
-  if (
-    propCount === 1 &&
-    (obj[textNodeName] || typeof obj[textNodeName] === "boolean" || obj[textNodeName] === 0)
-  ) {
-    return true;
-  }
-
-  return false;
-}
-exports.prettify = prettify;
-
-
-/***/ }),
-
-/***/ 9307:
-/***/ ((module) => {
-
-"use strict";
-
-
-class XmlNode{
-  constructor(tagname) {
-    this.tagname = tagname;
-    this.child = []; //nested tags, text, cdata, comments in order
-    this[":@"] = {}; //attributes map
-  }
-  add(key,val){
-    // this.child.push( {name : key, val: val, isCdata: isCdata });
-    if(key === "__proto__") key = "#__proto__";
-    this.child.push( {[key]: val });
-  }
-  addChild(node) {
-    if(node.tagname === "__proto__") node.tagname = "#__proto__";
-    if(node[":@"] && Object.keys(node[":@"]).length > 0){
-      this.child.push( { [node.tagname]: node.child, [":@"]: node[":@"] });
-    }else{
-      this.child.push( { [node.tagname]: node.child });
-    }
-  };
-};
-
-
-module.exports = XmlNode;
-
-/***/ }),
-
-/***/ 6496:
-/***/ ((module) => {
-
-const hexRegex = /^[-+]?0x[a-fA-F0-9]+$/;
-const numRegex = /^([\-\+])?(0*)(\.[0-9]+([eE]\-?[0-9]+)?|[0-9]+(\.[0-9]+([eE]\-?[0-9]+)?)?)$/;
-// const octRegex = /0x[a-z0-9]+/;
-// const binRegex = /0x[a-z0-9]+/;
-
-
-//polyfill
-if (!Number.parseInt && window.parseInt) {
-    Number.parseInt = window.parseInt;
-}
-if (!Number.parseFloat && window.parseFloat) {
-    Number.parseFloat = window.parseFloat;
-}
-
-  
-const consider = {
-    hex :  true,
-    leadingZeros: true,
-    decimalPoint: "\.",
-    eNotation: true
-    //skipLike: /regex/
-};
-
-function toNumber(str, options = {}){
-    // const options = Object.assign({}, consider);
-    // if(opt.leadingZeros === false){
-    //     options.leadingZeros = false;
-    // }else if(opt.hex === false){
-    //     options.hex = false;
-    // }
-
-    options = Object.assign({}, consider, options );
-    if(!str || typeof str !== "string" ) return str;
-    
-    let trimmedStr  = str.trim();
-    // if(trimmedStr === "0.0") return 0;
-    // else if(trimmedStr === "+0.0") return 0;
-    // else if(trimmedStr === "-0.0") return -0;
-
-    if(options.skipLike !== undefined && options.skipLike.test(trimmedStr)) return str;
-    else if (options.hex && hexRegex.test(trimmedStr)) {
-        return Number.parseInt(trimmedStr, 16);
-    // } else if (options.parseOct && octRegex.test(str)) {
-    //     return Number.parseInt(val, 8);
-    // }else if (options.parseBin && binRegex.test(str)) {
-    //     return Number.parseInt(val, 2);
-    }else{
-        //separate negative sign, leading zeros, and rest number
-        const match = numRegex.exec(trimmedStr);
-        if(match){
-            const sign = match[1];
-            const leadingZeros = match[2];
-            let numTrimmedByZeros = trimZeros(match[3]); //complete num without leading zeros
-            //trim ending zeros for floating number
-            
-            const eNotation = match[4] || match[6];
-            if(!options.leadingZeros && leadingZeros.length > 0 && sign && trimmedStr[2] !== ".") return str; //-0123
-            else if(!options.leadingZeros && leadingZeros.length > 0 && !sign && trimmedStr[1] !== ".") return str; //0123
-            else{//no leading zeros or leading zeros are allowed
-                const num = Number(trimmedStr);
-                const numStr = "" + num;
-                if(numStr.search(/[eE]/) !== -1){ //given number is long and parsed to eNotation
-                    if(options.eNotation) return num;
-                    else return str;
-                }else if(eNotation){ //given number has enotation
-                    if(options.eNotation) return num;
-                    else return str;
-                }else if(trimmedStr.indexOf(".") !== -1){ //floating number
-                    // const decimalPart = match[5].substr(1);
-                    // const intPart = trimmedStr.substr(0,trimmedStr.indexOf("."));
-
-                    
-                    // const p = numStr.indexOf(".");
-                    // const givenIntPart = numStr.substr(0,p);
-                    // const givenDecPart = numStr.substr(p+1);
-                    if(numStr === "0" && (numTrimmedByZeros === "") ) return num; //0.0
-                    else if(numStr === numTrimmedByZeros) return num; //0.456. 0.79000
-                    else if( sign && numStr === "-"+numTrimmedByZeros) return num;
-                    else return str;
-                }
-                
-                if(leadingZeros){
-                    // if(numTrimmedByZeros === numStr){
-                    //     if(options.leadingZeros) return num;
-                    //     else return str;
-                    // }else return str;
-                    if(numTrimmedByZeros === numStr) return num;
-                    else if(sign+numTrimmedByZeros === numStr) return num;
-                    else return str;
-                }
-
-                if(trimmedStr === numStr) return num;
-                else if(trimmedStr === sign+numStr) return num;
-                // else{
-                //     //number with +/- sign
-                //     trimmedStr.test(/[-+][0-9]);
-
-                // }
-                return str;
-            }
-            // else if(!eNotation && trimmedStr && trimmedStr !== Number(trimmedStr) ) return str;
-            
-        }else{ //non-numeric string
-            return str;
-        }
-    }
-}
-
-/**
- * 
- * @param {string} numStr without leading zeros
- * @returns 
- */
-function trimZeros(numStr){
-    if(numStr && numStr.indexOf(".") !== -1){//float
-        numStr = numStr.replace(/0+$/, ""); //remove ending zeros
-        if(numStr === ".")  numStr = "0";
-        else if(numStr[0] === ".")  numStr = "0"+numStr;
-        else if(numStr[numStr.length-1] === ".")  numStr = numStr.substr(0,numStr.length-1);
-        return numStr;
-    }
-    return numStr;
-}
-module.exports = toNumber
-
-
-/***/ }),
-
 /***/ 770:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
@@ -5902,7 +3191,6 @@ module.exports = __nccwpck_require__(218);
 /***/ 218:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 var net = __nccwpck_require__(9278);
@@ -6174,7 +3462,6 @@ exports.debug = debug; // for test
 /***/ 6752:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const Client = __nccwpck_require__(6197)
@@ -6349,7 +3636,6 @@ module.exports.mockErrors = mockErrors
 /***/ 9965:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { InvalidArgumentError } = __nccwpck_require__(8707)
@@ -6566,7 +3852,6 @@ module.exports = {
 /***/ 4660:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { AsyncResource } = __nccwpck_require__(290)
@@ -6678,7 +3963,6 @@ module.exports = connect
 /***/ 6862:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const {
@@ -6935,7 +4219,6 @@ module.exports = pipeline
 /***/ 4043:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const Readable = __nccwpck_require__(9927)
@@ -7123,7 +4406,6 @@ module.exports.RequestHandler = RequestHandler
 /***/ 3560:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { finished, PassThrough } = __nccwpck_require__(2203)
@@ -7351,7 +4633,6 @@ module.exports = stream
 /***/ 1882:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { InvalidArgumentError, RequestAbortedError, SocketError } = __nccwpck_require__(8707)
@@ -7464,7 +4745,6 @@ module.exports = upgrade
 /***/ 6615:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 module.exports.request = __nccwpck_require__(4043)
@@ -7479,7 +4759,6 @@ module.exports.connect = __nccwpck_require__(4660)
 /***/ 9927:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 // Ported from https://github.com/nodejs/undici/pull/907
 
 
@@ -7862,7 +5141,6 @@ module.exports = { getResolveErrorBodyCallback }
 /***/ 1093:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const {
@@ -8060,7 +5338,6 @@ module.exports = BalancedPool
 /***/ 479:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { kConstruct } = __nccwpck_require__(296)
@@ -8906,7 +6183,6 @@ module.exports = {
 /***/ 4738:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { kConstruct } = __nccwpck_require__(296)
@@ -9058,7 +6334,6 @@ module.exports = {
 /***/ 296:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 module.exports = {
@@ -9071,7 +6346,6 @@ module.exports = {
 /***/ 3993:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const assert = __nccwpck_require__(2613)
@@ -9128,7 +6402,6 @@ module.exports = {
 /***/ 6197:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 // @ts-check
 
 
@@ -11419,7 +8692,6 @@ module.exports = Client
 /***/ 3194:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 /* istanbul ignore file: only for Node 12 */
@@ -11475,7 +8747,6 @@ module.exports = function () {
 /***/ 9237:
 /***/ ((module) => {
 
-"use strict";
 
 
 // https://wicg.github.io/cookie-store/#cookie-maximum-attribute-value-size
@@ -11495,11 +8766,10 @@ module.exports = {
 /***/ 3168:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { parseSetCookie } = __nccwpck_require__(8915)
-const { stringify, getHeadersList } = __nccwpck_require__(3834)
+const { stringify } = __nccwpck_require__(3834)
 const { webidl } = __nccwpck_require__(4222)
 const { Headers } = __nccwpck_require__(6349)
 
@@ -11575,14 +8845,13 @@ function getSetCookies (headers) {
 
   webidl.brandCheck(headers, Headers, { strict: false })
 
-  const cookies = getHeadersList(headers).cookies
+  const cookies = headers.getSetCookie()
 
   if (!cookies) {
     return []
   }
 
-  // In older versions of undici, cookies is a list of name:value.
-  return cookies.map((pair) => parseSetCookie(Array.isArray(pair) ? pair[1] : pair))
+  return cookies.map((pair) => parseSetCookie(pair))
 }
 
 /**
@@ -11687,7 +8956,6 @@ module.exports = {
 /***/ 8915:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { maxNameValuePairSize, maxAttributeValueSize } = __nccwpck_require__(9237)
@@ -12010,14 +9278,14 @@ module.exports = {
 /***/ }),
 
 /***/ 3834:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
+/***/ ((module) => {
 
 
-const assert = __nccwpck_require__(2613)
-const { kHeadersList } = __nccwpck_require__(6443)
 
+/**
+ * @param {string} value
+ * @returns {boolean}
+ */
 function isCTLExcludingHtab (value) {
   if (value.length === 0) {
     return false
@@ -12278,31 +9546,13 @@ function stringify (cookie) {
   return out.join('; ')
 }
 
-let kHeadersListNode
-
-function getHeadersList (headers) {
-  if (headers[kHeadersList]) {
-    return headers[kHeadersList]
-  }
-
-  if (!kHeadersListNode) {
-    kHeadersListNode = Object.getOwnPropertySymbols(headers).find(
-      (symbol) => symbol.description === 'headers list'
-    )
-
-    assert(kHeadersListNode, 'Headers cannot be parsed')
-  }
-
-  const headersList = headers[kHeadersListNode]
-  assert(headersList)
-
-  return headersList
-}
-
 module.exports = {
   isCTLExcludingHtab,
-  stringify,
-  getHeadersList
+  validateCookieName,
+  validateCookiePath,
+  validateCookieValue,
+  toIMFDate,
+  stringify
 }
 
 
@@ -12311,7 +9561,6 @@ module.exports = {
 /***/ 9136:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const net = __nccwpck_require__(9278)
@@ -12508,7 +9757,6 @@ module.exports = buildConnector
 /***/ 735:
 /***/ ((module) => {
 
-"use strict";
 
 
 /** @type {Record<string, string | undefined>} */
@@ -12634,7 +9882,6 @@ module.exports = {
 /***/ 8707:
 /***/ ((module) => {
 
-"use strict";
 
 
 class UndiciError extends Error {
@@ -12872,7 +10119,6 @@ module.exports = {
 /***/ 4655:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const {
@@ -13449,7 +10695,6 @@ module.exports = {
 /***/ 3440:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const assert = __nccwpck_require__(2613)
@@ -13979,7 +11224,6 @@ module.exports = {
 /***/ 1:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const Dispatcher = __nccwpck_require__(992)
@@ -14179,7 +11423,6 @@ module.exports = DispatcherBase
 /***/ 992:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const EventEmitter = __nccwpck_require__(4434)
@@ -14206,7 +11449,6 @@ module.exports = Dispatcher
 /***/ 8923:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const Busboy = __nccwpck_require__(9581)
@@ -14230,6 +11472,14 @@ const { isErrored } = __nccwpck_require__(3440)
 const { isUint8Array, isArrayBuffer } = __nccwpck_require__(8253)
 const { File: UndiciFile } = __nccwpck_require__(3041)
 const { parseMIMEType, serializeAMimeType } = __nccwpck_require__(4322)
+
+let random
+try {
+  const crypto = __nccwpck_require__(7598)
+  random = (max) => crypto.randomInt(0, max)
+} catch {
+  random = (max) => Math.floor(Math.random(max))
+}
 
 let ReadableStream = globalThis.ReadableStream
 
@@ -14316,7 +11566,7 @@ function extractBody (object, keepalive = false) {
     // Set source to a copy of the bytes held by object.
     source = new Uint8Array(object.buffer.slice(object.byteOffset, object.byteOffset + object.byteLength))
   } else if (util.isFormDataLike(object)) {
-    const boundary = `----formdata-undici-0${`${Math.floor(Math.random() * 1e11)}`.padStart(11, '0')}`
+    const boundary = `----formdata-undici-0${`${random(1e11)}`.padStart(11, '0')}`
     const prefix = `--${boundary}\r\nContent-Disposition: form-data`
 
     /*! formdata-polyfill. MIT License. Jimmy Wärting <https://jimmy.warting.se/opensource> */
@@ -14819,7 +12069,6 @@ module.exports = {
 /***/ 7326:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { MessageChannel, receiveMessageOnPort } = __nccwpck_require__(8167)
@@ -15612,7 +12861,6 @@ module.exports = {
 /***/ 3041:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { Blob, File: NativeFile } = __nccwpck_require__(181)
@@ -15964,7 +13212,6 @@ module.exports = { File, FileLike, isFileLike }
 /***/ 3073:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { isBlobLike, toUSVString, makeIterator } = __nccwpck_require__(5523)
@@ -16237,7 +13484,6 @@ module.exports = { FormData }
 /***/ 5628:
 /***/ ((module) => {
 
-"use strict";
 
 
 // In case of breaking changes, increase the version
@@ -16285,7 +13531,6 @@ module.exports = {
 /***/ 6349:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 // https://github.com/Ethan-Arrowood/undici-fetch
 
 
@@ -16298,6 +13543,7 @@ const {
   isValidHeaderName,
   isValidHeaderValue
 } = __nccwpck_require__(5523)
+const util = __nccwpck_require__(9023)
 const { webidl } = __nccwpck_require__(4222)
 const assert = __nccwpck_require__(2613)
 
@@ -16851,6 +14097,9 @@ Object.defineProperties(Headers.prototype, {
   [Symbol.toStringTag]: {
     value: 'Headers',
     configurable: true
+  },
+  [util.inspect.custom]: {
+    enumerable: false
   }
 })
 
@@ -16882,7 +14131,6 @@ module.exports = {
 /***/ 2315:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 // https://github.com/Ethan-Arrowood/undici-fetch
 
 
@@ -19038,7 +16286,6 @@ module.exports = {
 /***/ 5194:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 /* globals AbortController */
 
 
@@ -19992,7 +17239,6 @@ module.exports = { Request, makeRequest }
 /***/ 8676:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { Headers, HeadersList, fill } = __nccwpck_require__(6349)
@@ -20571,7 +17817,6 @@ module.exports = {
 /***/ 9710:
 /***/ ((module) => {
 
-"use strict";
 
 
 module.exports = {
@@ -20589,7 +17834,6 @@ module.exports = {
 /***/ 5523:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = __nccwpck_require__(7326)
@@ -21741,7 +18985,6 @@ module.exports = {
 /***/ 4222:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { types } = __nccwpck_require__(9023)
@@ -22395,7 +19638,6 @@ module.exports = {
 /***/ 396:
 /***/ ((module) => {
 
-"use strict";
 
 
 /**
@@ -22693,7 +19935,6 @@ module.exports = {
 /***/ 2160:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const {
@@ -23045,7 +20286,6 @@ module.exports = {
 /***/ 5976:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { webidl } = __nccwpck_require__(4222)
@@ -23131,7 +20371,6 @@ module.exports = {
 /***/ 6812:
 /***/ ((module) => {
 
-"use strict";
 
 
 module.exports = {
@@ -23149,7 +20388,6 @@ module.exports = {
 /***/ 165:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const {
@@ -23549,7 +20787,6 @@ module.exports = {
 /***/ 2581:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 // We include a version number for the Dispatcher API. In case of breaking changes,
@@ -23589,7 +20826,6 @@ module.exports = {
 /***/ 8840:
 /***/ ((module) => {
 
-"use strict";
 
 
 module.exports = class DecoratorHandler {
@@ -23632,7 +20868,6 @@ module.exports = class DecoratorHandler {
 /***/ 8299:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const util = __nccwpck_require__(3440)
@@ -24204,7 +21439,6 @@ module.exports = RetryHandler
 /***/ 4415:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const RedirectHandler = __nccwpck_require__(8299)
@@ -24233,7 +21467,6 @@ module.exports = createRedirectInterceptor
 /***/ 2824:
 /***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
-"use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.SPECIAL_HEADERS = exports.HEADER_STATE = exports.MINOR = exports.MAJOR = exports.CONNECTION_TOKEN_CHARS = exports.HEADER_CHARS = exports.TOKEN = exports.STRICT_TOKEN = exports.HEX = exports.URL_CHAR = exports.STRICT_URL_CHAR = exports.USERINFO_CHARS = exports.MARK = exports.ALPHANUM = exports.NUM = exports.HEX_MAP = exports.NUM_MAP = exports.ALPHA = exports.FINISH = exports.H_METHOD_MAP = exports.METHOD_MAP = exports.METHODS_RTSP = exports.METHODS_ICE = exports.METHODS_HTTP = exports.METHODS = exports.LENIENT_FLAGS = exports.FLAGS = exports.TYPE = exports.ERROR = void 0;
@@ -24534,7 +21767,6 @@ module.exports = 'AGFzbQEAAAABMAhgAX8Bf2ADf39/AX9gBH9/f38Bf2AAAGADf39/AGABfwBgAn
 /***/ 172:
 /***/ ((__unused_webpack_module, exports) => {
 
-"use strict";
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.enumToMap = void 0;
@@ -24556,7 +21788,6 @@ exports.enumToMap = enumToMap;
 /***/ 7501:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { kClients } = __nccwpck_require__(6443)
@@ -24735,7 +21966,6 @@ module.exports = MockAgent
 /***/ 7365:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { promisify } = __nccwpck_require__(9023)
@@ -24802,7 +22032,6 @@ module.exports = MockClient
 /***/ 2429:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { UndiciError } = __nccwpck_require__(8707)
@@ -24827,7 +22056,6 @@ module.exports = {
 /***/ 1511:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { getResponseData, buildKey, addMockDispatch } = __nccwpck_require__(3397)
@@ -25041,7 +22269,6 @@ module.exports.MockScope = MockScope
 /***/ 4004:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { promisify } = __nccwpck_require__(9023)
@@ -25108,7 +22335,6 @@ module.exports = MockPool
 /***/ 1117:
 /***/ ((module) => {
 
-"use strict";
 
 
 module.exports = {
@@ -25139,7 +22365,6 @@ module.exports = {
 /***/ 3397:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { MockNotMatchedError } = __nccwpck_require__(2429)
@@ -25498,7 +22723,6 @@ module.exports = {
 /***/ 6142:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { Transform } = __nccwpck_require__(2203)
@@ -25546,7 +22770,6 @@ module.exports = class PendingInterceptorsFormatter {
 /***/ 1529:
 /***/ ((module) => {
 
-"use strict";
 
 
 const singulars = {
@@ -25583,7 +22806,6 @@ module.exports = class Pluralizer {
 /***/ 4869:
 /***/ ((module) => {
 
-"use strict";
 /* eslint-disable */
 
 
@@ -25708,7 +22930,6 @@ module.exports = class FixedQueue {
 /***/ 8640:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const DispatcherBase = __nccwpck_require__(1)
@@ -25951,7 +23172,6 @@ module.exports = PoolStats
 /***/ 5076:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const {
@@ -26027,6 +23247,20 @@ class Pool extends PoolBase {
       ? { ...options.interceptors }
       : undefined
     this[kFactory] = factory
+
+    this.on('connectionError', (origin, targets, error) => {
+      // If a connection error occurs, we remove the client from the pool,
+      // and emit a connectionError event. They will not be re-used.
+      // Fixes https://github.com/nodejs/undici/issues/3895
+      for (const target of targets) {
+        // Do not use kRemoveClient here, as it will close the client,
+        // but the client cannot be closed in this state.
+        const idx = this[kClients].indexOf(target)
+        if (idx !== -1) {
+          this[kClients].splice(idx, 1)
+        }
+      }
+    })
   }
 
   [kGetDispatcher] () {
@@ -26053,7 +23287,6 @@ module.exports = Pool
 /***/ 2720:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { kProxy, kClose, kDestroy, kInterceptors } = __nccwpck_require__(6443)
@@ -26250,7 +23483,6 @@ module.exports = ProxyAgent
 /***/ 8804:
 /***/ ((module) => {
 
-"use strict";
 
 
 let fastNow = Date.now()
@@ -26355,7 +23587,6 @@ module.exports = {
 /***/ 8550:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const diagnosticsChannel = __nccwpck_require__(1637)
@@ -26654,7 +23885,6 @@ module.exports = {
 /***/ 5913:
 /***/ ((module) => {
 
-"use strict";
 
 
 // This is a Globally Unique Identifier unique used
@@ -26713,7 +23943,6 @@ module.exports = {
 /***/ 6255:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { webidl } = __nccwpck_require__(4222)
@@ -27024,7 +24253,6 @@ module.exports = {
 /***/ 1237:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { maxUnsigned16Bit } = __nccwpck_require__(5913)
@@ -27105,7 +24333,6 @@ module.exports = {
 /***/ 3171:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { Writable } = __nccwpck_require__(2203)
@@ -27457,7 +24684,6 @@ module.exports = {
 /***/ 2933:
 /***/ ((module) => {
 
-"use strict";
 
 
 module.exports = {
@@ -27477,7 +24703,6 @@ module.exports = {
 /***/ 3574:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { kReadyState, kController, kResponse, kBinaryType, kWebSocketURL } = __nccwpck_require__(2933)
@@ -27685,7 +24910,6 @@ module.exports = {
 /***/ 5171:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const { webidl } = __nccwpck_require__(4222)
@@ -28334,295 +25558,223 @@ module.exports = {
 /***/ 2613:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("assert");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("assert");
 
 /***/ }),
 
 /***/ 290:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("async_hooks");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("async_hooks");
 
 /***/ }),
 
 /***/ 181:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("buffer");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("buffer");
 
 /***/ }),
 
 /***/ 5317:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("child_process");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("child_process");
 
 /***/ }),
 
 /***/ 4236:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("console");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("console");
 
 /***/ }),
 
 /***/ 6982:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("crypto");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("crypto");
 
 /***/ }),
 
 /***/ 1637:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("diagnostics_channel");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("diagnostics_channel");
 
 /***/ }),
 
 /***/ 4434:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("events");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("events");
 
 /***/ }),
 
 /***/ 9896:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("fs");
-
-/***/ }),
-
-/***/ 1943:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("fs/promises");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("fs");
 
 /***/ }),
 
 /***/ 8611:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("http");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("http");
 
 /***/ }),
 
 /***/ 5675:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("http2");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("http2");
 
 /***/ }),
 
 /***/ 5692:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("https");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("https");
 
 /***/ }),
 
 /***/ 9278:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("net");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("net");
+
+/***/ }),
+
+/***/ 7598:
+/***/ ((module) => {
+
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:crypto");
 
 /***/ }),
 
 /***/ 8474:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("node:events");
-
-/***/ }),
-
-/***/ 3024:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:fs");
-
-/***/ }),
-
-/***/ 1455:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:fs/promises");
-
-/***/ }),
-
-/***/ 6760:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:path");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:events");
 
 /***/ }),
 
 /***/ 7075:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("node:stream");
-
-/***/ }),
-
-/***/ 6193:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:string_decoder");
-
-/***/ }),
-
-/***/ 3136:
-/***/ ((module) => {
-
-"use strict";
-module.exports = require("node:url");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:stream");
 
 /***/ }),
 
 /***/ 7975:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("node:util");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:util");
 
 /***/ }),
 
 /***/ 857:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("os");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("os");
 
 /***/ }),
 
 /***/ 6928:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("path");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("path");
 
 /***/ }),
 
 /***/ 2987:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("perf_hooks");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("perf_hooks");
 
 /***/ }),
 
 /***/ 3480:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("querystring");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("querystring");
 
 /***/ }),
 
 /***/ 2203:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("stream");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("stream");
 
 /***/ }),
 
 /***/ 3774:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("stream/web");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("stream/web");
 
 /***/ }),
 
 /***/ 3193:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("string_decoder");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("string_decoder");
 
 /***/ }),
 
 /***/ 3557:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("timers");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("timers");
 
 /***/ }),
 
 /***/ 4756:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("tls");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("tls");
 
 /***/ }),
 
 /***/ 7016:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("url");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("url");
 
 /***/ }),
 
 /***/ 9023:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("util");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("util");
 
 /***/ }),
 
 /***/ 8253:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("util/types");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("util/types");
 
 /***/ }),
 
 /***/ 8167:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("worker_threads");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("worker_threads");
 
 /***/ }),
 
 /***/ 3106:
 /***/ ((module) => {
 
-"use strict";
-module.exports = require("zlib");
+module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("zlib");
 
 /***/ }),
 
 /***/ 7182:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const WritableStream = (__nccwpck_require__(7075).Writable)
@@ -28843,7 +25995,6 @@ module.exports = Dicer
 /***/ 2271:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const EventEmitter = (__nccwpck_require__(8474).EventEmitter)
@@ -28951,7 +26102,6 @@ module.exports = HeaderParser
 /***/ 612:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const inherits = (__nccwpck_require__(7975).inherits)
@@ -28972,7 +26122,6 @@ module.exports = PartStream
 /***/ 4136:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 /**
@@ -29208,7 +26357,6 @@ module.exports = SBMH
 /***/ 9581:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const WritableStream = (__nccwpck_require__(7075).Writable)
@@ -29301,7 +26449,6 @@ module.exports.Dicer = Dicer
 /***/ 1192:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 // TODO:
@@ -29615,7 +26762,6 @@ module.exports = Multipart
 /***/ 855:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 
 
 const Decoder = __nccwpck_require__(1496)
@@ -29813,7 +26959,6 @@ module.exports = UrlEncoded
 /***/ 1496:
 /***/ ((module) => {
 
-"use strict";
 
 
 const RE_PLUS = /\+/g
@@ -29875,7 +27020,6 @@ module.exports = Decoder
 /***/ 692:
 /***/ ((module) => {
 
-"use strict";
 
 
 module.exports = function basename (path) {
@@ -29897,7 +27041,6 @@ module.exports = function basename (path) {
 /***/ 2747:
 /***/ (function(module) {
 
-"use strict";
 
 
 // Node has always utf-8
@@ -30019,7 +27162,6 @@ module.exports = decodeText
 /***/ 2393:
 /***/ ((module) => {
 
-"use strict";
 
 
 module.exports = function getLimit (limits, name, defaultLimit) {
@@ -30043,7 +27185,6 @@ module.exports = function getLimit (limits, name, defaultLimit) {
 /***/ 8929:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-"use strict";
 /* eslint-disable object-property-newline */
 
 
@@ -30242,1432 +27383,2277 @@ function parseParams (str) {
 module.exports = parseParams
 
 
-/***/ }),
+/***/ })
 
-/***/ 2981:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+/******/ });
+/************************************************************************/
+/******/ // The module cache
+/******/ var __webpack_module_cache__ = {};
+/******/ 
+/******/ // The require function
+/******/ function __nccwpck_require__(moduleId) {
+/******/ 	// Check if module is in cache
+/******/ 	var cachedModule = __webpack_module_cache__[moduleId];
+/******/ 	if (cachedModule !== undefined) {
+/******/ 		return cachedModule.exports;
+/******/ 	}
+/******/ 	// Create a new module (and put it into the cache)
+/******/ 	var module = __webpack_module_cache__[moduleId] = {
+/******/ 		// no module.id needed
+/******/ 		// no module.loaded needed
+/******/ 		exports: {}
+/******/ 	};
+/******/ 
+/******/ 	// Execute the module function
+/******/ 	var threw = true;
+/******/ 	try {
+/******/ 		__webpack_modules__[moduleId].call(module.exports, module, module.exports, __nccwpck_require__);
+/******/ 		threw = false;
+/******/ 	} finally {
+/******/ 		if(threw) delete __webpack_module_cache__[moduleId];
+/******/ 	}
+/******/ 
+/******/ 	// Return the exports of the module
+/******/ 	return module.exports;
+/******/ }
+/******/ 
+/************************************************************************/
+/******/ /* webpack/runtime/create fake namespace object */
+/******/ (() => {
+/******/ 	var getProto = Object.getPrototypeOf ? (obj) => (Object.getPrototypeOf(obj)) : (obj) => (obj.__proto__);
+/******/ 	var leafPrototypes;
+/******/ 	// create a fake namespace object
+/******/ 	// mode & 1: value is a module id, require it
+/******/ 	// mode & 2: merge all properties of value into the ns
+/******/ 	// mode & 4: return value when already ns object
+/******/ 	// mode & 16: return value when it's Promise-like
+/******/ 	// mode & 8|1: behave like require
+/******/ 	__nccwpck_require__.t = function(value, mode) {
+/******/ 		if(mode & 1) value = this(value);
+/******/ 		if(mode & 8) return value;
+/******/ 		if(typeof value === 'object' && value) {
+/******/ 			if((mode & 4) && value.__esModule) return value;
+/******/ 			if((mode & 16) && typeof value.then === 'function') return value;
+/******/ 		}
+/******/ 		var ns = Object.create(null);
+/******/ 		__nccwpck_require__.r(ns);
+/******/ 		var def = {};
+/******/ 		leafPrototypes = leafPrototypes || [null, getProto({}), getProto([]), getProto(getProto)];
+/******/ 		for(var current = mode & 2 && value; typeof current == 'object' && !~leafPrototypes.indexOf(current); current = getProto(current)) {
+/******/ 			Object.getOwnPropertyNames(current).forEach((key) => (def[key] = () => (value[key])));
+/******/ 		}
+/******/ 		def['default'] = () => (value);
+/******/ 		__nccwpck_require__.d(ns, def);
+/******/ 		return ns;
+/******/ 	};
+/******/ })();
+/******/ 
+/******/ /* webpack/runtime/define property getters */
+/******/ (() => {
+/******/ 	// define getter functions for harmony exports
+/******/ 	__nccwpck_require__.d = (exports, definition) => {
+/******/ 		for(var key in definition) {
+/******/ 			if(__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
+/******/ 				Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
+/******/ 			}
+/******/ 		}
+/******/ 	};
+/******/ })();
+/******/ 
+/******/ /* webpack/runtime/hasOwnProperty shorthand */
+/******/ (() => {
+/******/ 	__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
+/******/ })();
+/******/ 
+/******/ /* webpack/runtime/make namespace object */
+/******/ (() => {
+/******/ 	// define __esModule on exports
+/******/ 	__nccwpck_require__.r = (exports) => {
+/******/ 		if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
+/******/ 			Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
+/******/ 		}
+/******/ 		Object.defineProperty(exports, '__esModule', { value: true });
+/******/ 	};
+/******/ })();
+/******/ 
+/******/ /* webpack/runtime/compat */
+/******/ 
+/******/ if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = new URL('.', import.meta.url).pathname.slice(import.meta.url.match(/^file:\/\/\/\w:/) ? 1 : 0, -1) + "/";
+/******/ 
+/************************************************************************/
+var __webpack_exports__ = {};
 
-"use strict";
+// EXPORTS
+__nccwpck_require__.d(__webpack_exports__, {
+  bZ: () => (/* binding */ getMetricRow),
+  Xr: () => (/* binding */ guessPackageNameByFilePath),
+  eF: () => (/* binding */ run)
+});
 
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Glob = void 0;
-const minimatch_1 = __nccwpck_require__(1409);
-const node_url_1 = __nccwpck_require__(3136);
-const path_scurry_1 = __nccwpck_require__(6577);
-const pattern_js_1 = __nccwpck_require__(7813);
-const walker_js_1 = __nccwpck_require__(1157);
-// if no process global, just call it linux.
-// so we default to case-sensitive, / separators
-const defaultPlatform = (typeof process === 'object' &&
-    process &&
-    typeof process.platform === 'string') ?
-    process.platform
-    : 'linux';
+// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
+var core = __nccwpck_require__(7484);
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/xmlparser/OptionsBuilder.js
+
+const defaultOptions = {
+    preserveOrder: false,
+    attributeNamePrefix: '@_',
+    attributesGroupName: false,
+    textNodeName: '#text',
+    ignoreAttributes: true,
+    removeNSPrefix: false, // remove NS from tag name or attribute name if true
+    allowBooleanAttributes: false, //a tag can have attributes without any value
+    //ignoreRootElement : false,
+    parseTagValue: true,
+    parseAttributeValue: false,
+    trimValues: true, //Trim string values of tag and attributes
+    cdataPropName: false,
+    numberParseOptions: {
+      hex: true,
+      leadingZeros: true,
+      eNotation: true
+    },
+    tagValueProcessor: function(tagName, val) {
+      return val;
+    },
+    attributeValueProcessor: function(attrName, val) {
+      return val;
+    },
+    stopNodes: [], //nested tags will not be parsed even for errors
+    alwaysCreateTextNode: false,
+    isArray: () => false,
+    commentPropName: false,
+    unpairedTags: [],
+    processEntities: true,
+    htmlEntities: false,
+    ignoreDeclaration: false,
+    ignorePiTags: false,
+    transformTagName: false,
+    transformAttributeName: false,
+    updateTag: function(tagName, jPath, attrs){
+      return tagName
+    },
+    // skipEmptyListItem: false
+    captureMetaData: false,
+};
+   
+const buildOptions = function(options) {
+    return Object.assign({}, defaultOptions, options);
+};
+
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/util.js
+
+
+const nameStartChar = ':A-Za-z_\\u00C0-\\u00D6\\u00D8-\\u00F6\\u00F8-\\u02FF\\u0370-\\u037D\\u037F-\\u1FFF\\u200C-\\u200D\\u2070-\\u218F\\u2C00-\\u2FEF\\u3001-\\uD7FF\\uF900-\\uFDCF\\uFDF0-\\uFFFD';
+const nameChar = nameStartChar + '\\-.\\d\\u00B7\\u0300-\\u036F\\u203F-\\u2040';
+const nameRegexp = '[' + nameStartChar + '][' + nameChar + ']*';
+const regexName = new RegExp('^' + nameRegexp + '$');
+
+function getAllMatches(string, regex) {
+  const matches = [];
+  let match = regex.exec(string);
+  while (match) {
+    const allmatches = [];
+    allmatches.startIndex = regex.lastIndex - match[0].length;
+    const len = match.length;
+    for (let index = 0; index < len; index++) {
+      allmatches.push(match[index]);
+    }
+    matches.push(allmatches);
+    match = regex.exec(string);
+  }
+  return matches;
+}
+
+const isName = function(string) {
+  const match = regexName.exec(string);
+  return !(match === null || typeof match === 'undefined');
+}
+
+function isExist(v) {
+  return typeof v !== 'undefined';
+}
+
+function isEmptyObject(obj) {
+  return Object.keys(obj).length === 0;
+}
+
 /**
- * An object that can perform glob pattern traversals.
+ * Copy all the properties of a into b.
+ * @param {*} target
+ * @param {*} a
  */
-class Glob {
-    absolute;
-    cwd;
-    root;
-    dot;
-    dotRelative;
-    follow;
-    ignore;
-    magicalBraces;
-    mark;
-    matchBase;
-    maxDepth;
-    nobrace;
-    nocase;
-    nodir;
-    noext;
-    noglobstar;
-    pattern;
-    platform;
-    realpath;
-    scurry;
-    stat;
-    signal;
-    windowsPathsNoEscape;
-    withFileTypes;
-    includeChildMatches;
-    /**
-     * The options provided to the constructor.
-     */
-    opts;
-    /**
-     * An array of parsed immutable {@link Pattern} objects.
-     */
-    patterns;
-    /**
-     * All options are stored as properties on the `Glob` object.
-     *
-     * See {@link GlobOptions} for full options descriptions.
-     *
-     * Note that a previous `Glob` object can be passed as the
-     * `GlobOptions` to another `Glob` instantiation to re-use settings
-     * and caches with a new pattern.
-     *
-     * Traversal functions can be called multiple times to run the walk
-     * again.
-     */
-    constructor(pattern, opts) {
-        /* c8 ignore start */
-        if (!opts)
-            throw new TypeError('glob options required');
-        /* c8 ignore stop */
-        this.withFileTypes = !!opts.withFileTypes;
-        this.signal = opts.signal;
-        this.follow = !!opts.follow;
-        this.dot = !!opts.dot;
-        this.dotRelative = !!opts.dotRelative;
-        this.nodir = !!opts.nodir;
-        this.mark = !!opts.mark;
-        if (!opts.cwd) {
-            this.cwd = '';
-        }
-        else if (opts.cwd instanceof URL || opts.cwd.startsWith('file://')) {
-            opts.cwd = (0, node_url_1.fileURLToPath)(opts.cwd);
-        }
-        this.cwd = opts.cwd || '';
-        this.root = opts.root;
-        this.magicalBraces = !!opts.magicalBraces;
-        this.nobrace = !!opts.nobrace;
-        this.noext = !!opts.noext;
-        this.realpath = !!opts.realpath;
-        this.absolute = opts.absolute;
-        this.includeChildMatches = opts.includeChildMatches !== false;
-        this.noglobstar = !!opts.noglobstar;
-        this.matchBase = !!opts.matchBase;
-        this.maxDepth =
-            typeof opts.maxDepth === 'number' ? opts.maxDepth : Infinity;
-        this.stat = !!opts.stat;
-        this.ignore = opts.ignore;
-        if (this.withFileTypes && this.absolute !== undefined) {
-            throw new Error('cannot set absolute and withFileTypes:true');
-        }
-        if (typeof pattern === 'string') {
-            pattern = [pattern];
-        }
-        this.windowsPathsNoEscape =
-            !!opts.windowsPathsNoEscape ||
-                opts.allowWindowsEscape ===
-                    false;
-        if (this.windowsPathsNoEscape) {
-            pattern = pattern.map(p => p.replace(/\\/g, '/'));
-        }
-        if (this.matchBase) {
-            if (opts.noglobstar) {
-                throw new TypeError('base matching requires globstar');
+function merge(target, a, arrayMode) {
+  if (a) {
+    const keys = Object.keys(a); // will return an array of own properties
+    const len = keys.length; //don't make it inline
+    for (let i = 0; i < len; i++) {
+      if (arrayMode === 'strict') {
+        target[keys[i]] = [ a[keys[i]] ];
+      } else {
+        target[keys[i]] = a[keys[i]];
+      }
+    }
+  }
+}
+/* exports.merge =function (b,a){
+  return Object.assign(b,a);
+} */
+
+function getValue(v) {
+  if (exports.isExist(v)) {
+    return v;
+  } else {
+    return '';
+  }
+}
+
+// const fakeCall = function(a) {return a;};
+// const fakeCallNoReturn = function() {};
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/xmlparser/xmlNode.js
+
+
+let METADATA_SYMBOL;
+
+if (typeof Symbol !== "function") {
+  METADATA_SYMBOL = "@@xmlMetadata";
+} else {
+  METADATA_SYMBOL = Symbol("XML Node Metadata");
+}
+
+class XmlNode{
+  constructor(tagname) {
+    this.tagname = tagname;
+    this.child = []; //nested tags, text, cdata, comments in order
+    this[":@"] = {}; //attributes map
+  }
+  add(key,val){
+    // this.child.push( {name : key, val: val, isCdata: isCdata });
+    if(key === "__proto__") key = "#__proto__";
+    this.child.push( {[key]: val });
+  }
+  addChild(node, startIndex) {
+    if(node.tagname === "__proto__") node.tagname = "#__proto__";
+    if(node[":@"] && Object.keys(node[":@"]).length > 0){
+      this.child.push( { [node.tagname]: node.child, [":@"]: node[":@"] });
+    }else{
+      this.child.push( { [node.tagname]: node.child });
+    }
+    // if requested, add the startIndex
+    if (startIndex !== undefined) {
+      // Note: for now we just overwrite the metadata. If we had more complex metadata,
+      // we might need to do an object append here:  metadata = { ...metadata, startIndex }
+      this.child[this.child.length - 1][METADATA_SYMBOL] = { startIndex };
+    }
+  }
+  /** symbol used for metadata */
+  static getMetaDataSymbol() {
+    return METADATA_SYMBOL;
+  }
+}
+
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/xmlparser/DocTypeReader.js
+
+
+//TODO: handle comments
+function readDocType(xmlData, i){
+    
+    const entities = {};
+    if( xmlData[i + 3] === 'O' &&
+         xmlData[i + 4] === 'C' &&
+         xmlData[i + 5] === 'T' &&
+         xmlData[i + 6] === 'Y' &&
+         xmlData[i + 7] === 'P' &&
+         xmlData[i + 8] === 'E')
+    {    
+        i = i+9;
+        let angleBracketsCount = 1;
+        let hasBody = false, comment = false;
+        let exp = "";
+        for(;i<xmlData.length;i++){
+            if (xmlData[i] === '<' && !comment) { //Determine the tag type
+                if( hasBody && hasSeq(xmlData, "!ENTITY",i)){
+                    i += 7; 
+                    let entityName, val;
+                    [entityName, val,i] = readEntityExp(xmlData,i+1);
+                    if(val.indexOf("&") === -1) //Parameter entities are not supported
+                        entities[ entityName ] = {
+                            regx : RegExp( `&${entityName};`,"g"),
+                            val: val
+                        };
+                }
+                else if( hasBody && hasSeq(xmlData, "!ELEMENT",i))  {
+                    i += 8;//Not supported
+                    const {index} = readElementExp(xmlData,i+1);
+                    i = index;
+                }else if( hasBody && hasSeq(xmlData, "!ATTLIST",i)){
+                    i += 8;//Not supported
+                    // const {index} = readAttlistExp(xmlData,i+1);
+                    // i = index;
+                }else if( hasBody && hasSeq(xmlData, "!NOTATION",i)) {
+                    i += 9;//Not supported
+                    const {index} = readNotationExp(xmlData,i+1);
+                    i = index;
+                }else if( hasSeq(xmlData, "!--",i) ) comment = true;
+                else throw new Error(`Invalid DOCTYPE`);
+
+                angleBracketsCount++;
+                exp = "";
+            } else if (xmlData[i] === '>') { //Read tag content
+                if(comment){
+                    if( xmlData[i - 1] === "-" && xmlData[i - 2] === "-"){
+                        comment = false;
+                        angleBracketsCount--;
+                    }
+                }else{
+                    angleBracketsCount--;
+                }
+                if (angleBracketsCount === 0) {
+                  break;
+                }
+            }else if( xmlData[i] === '['){
+                hasBody = true;
+            }else{
+                exp += xmlData[i];
             }
-            pattern = pattern.map(p => (p.includes('/') ? p : `./**/${p}`));
         }
-        this.pattern = pattern;
-        this.platform = opts.platform || defaultPlatform;
-        this.opts = { ...opts, platform: this.platform };
-        if (opts.scurry) {
-            this.scurry = opts.scurry;
-            if (opts.nocase !== undefined &&
-                opts.nocase !== opts.scurry.nocase) {
-                throw new Error('nocase option contradicts provided scurry option');
+        if(angleBracketsCount !== 0){
+            throw new Error(`Unclosed DOCTYPE`);
+        }
+    }else{
+        throw new Error(`Invalid Tag instead of DOCTYPE`);
+    }
+    return {entities, i};
+}
+
+const skipWhitespace = (data, index) => {
+    while (index < data.length && /\s/.test(data[index])) {
+        index++;
+    }
+    return index;
+};
+
+function readEntityExp(xmlData, i) {    
+    //External entities are not supported
+    //    <!ENTITY ext SYSTEM "http://normal-website.com" >
+
+    //Parameter entities are not supported
+    //    <!ENTITY entityname "&anotherElement;">
+
+    //Internal entities are supported
+    //    <!ENTITY entityname "replacement text">
+
+    // Skip leading whitespace after <!ENTITY
+    i = skipWhitespace(xmlData, i);
+
+    // Read entity name
+    let entityName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i]) && xmlData[i] !== '"' && xmlData[i] !== "'") {
+        entityName += xmlData[i];
+        i++;
+    }
+    validateEntityName(entityName);
+
+    // Skip whitespace after entity name
+    i = skipWhitespace(xmlData, i);
+
+    // Check for unsupported constructs (external entities or parameter entities)
+    if (xmlData.substring(i, i + 6).toUpperCase() === "SYSTEM") {
+        throw new Error("External entities are not supported");
+    }else if (xmlData[i] === "%") {
+        throw new Error("Parameter entities are not supported");
+    }
+
+    // Read entity value (internal entity)
+    let entityValue = "";
+    [i, entityValue] = readIdentifierVal(xmlData, i, "entity");
+    i--;
+    return [entityName, entityValue, i ];
+}
+
+function readNotationExp(xmlData, i) {
+    // Skip leading whitespace after <!NOTATION
+    i = skipWhitespace(xmlData, i);
+
+    // Read notation name
+    let notationName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+        notationName += xmlData[i];
+        i++;
+    }
+    validateEntityName(notationName);
+
+    // Skip whitespace after notation name
+    i = skipWhitespace(xmlData, i);
+
+    // Check identifier type (SYSTEM or PUBLIC)
+    const identifierType = xmlData.substring(i, i + 6).toUpperCase();
+    if (identifierType !== "SYSTEM" && identifierType !== "PUBLIC") {
+        throw new Error(`Expected SYSTEM or PUBLIC, found "${identifierType}"`);
+    }
+    i += identifierType.length;
+
+    // Skip whitespace after identifier type
+    i = skipWhitespace(xmlData, i);
+
+    // Read public identifier (if PUBLIC)
+    let publicIdentifier = null;
+    let systemIdentifier = null;
+
+    if (identifierType === "PUBLIC") {
+        [i, publicIdentifier ] = readIdentifierVal(xmlData, i, "publicIdentifier");
+
+        // Skip whitespace after public identifier
+        i = skipWhitespace(xmlData, i);
+
+        // Optionally read system identifier
+        if (xmlData[i] === '"' || xmlData[i] === "'") {
+            [i, systemIdentifier ] = readIdentifierVal(xmlData, i,"systemIdentifier");
+        }
+    } else if (identifierType === "SYSTEM") {
+        // Read system identifier (mandatory for SYSTEM)
+        [i, systemIdentifier ] = readIdentifierVal(xmlData, i, "systemIdentifier");
+
+        if (!systemIdentifier) {
+            throw new Error("Missing mandatory system identifier for SYSTEM notation");
+        }
+    }
+    
+    return {notationName, publicIdentifier, systemIdentifier, index: --i};
+}
+
+function readIdentifierVal(xmlData, i, type) {
+    let identifierVal = "";
+    const startChar = xmlData[i];
+    if (startChar !== '"' && startChar !== "'") {
+        throw new Error(`Expected quoted string, found "${startChar}"`);
+    }
+    i++;
+
+    while (i < xmlData.length && xmlData[i] !== startChar) {
+        identifierVal += xmlData[i];
+        i++;
+    }
+
+    if (xmlData[i] !== startChar) {
+        throw new Error(`Unterminated ${type} value`);
+    }
+    i++;
+    return [i, identifierVal];
+}
+
+function readElementExp(xmlData, i) {
+    // <!ELEMENT br EMPTY>
+    // <!ELEMENT div ANY>
+    // <!ELEMENT title (#PCDATA)>
+    // <!ELEMENT book (title, author+)>
+    // <!ELEMENT name (content-model)>
+    
+    // Skip leading whitespace after <!ELEMENT
+    i = skipWhitespace(xmlData, i);
+
+    // Read element name
+    let elementName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+        elementName += xmlData[i];
+        i++;
+    }
+
+    // Validate element name
+    if (!validateEntityName(elementName)) {
+        throw new Error(`Invalid element name: "${elementName}"`);
+    }
+
+    // Skip whitespace after element name
+    i = skipWhitespace(xmlData, i);
+    let contentModel = "";
+    // Expect '(' to start content model
+    if(xmlData[i] === "E" && hasSeq(xmlData, "MPTY",i)) i+=4;
+    else if(xmlData[i] === "A" && hasSeq(xmlData, "NY",i)) i+=2;
+    else if (xmlData[i] === "(") {
+        i++; // Move past '('
+
+        // Read content model
+        while (i < xmlData.length && xmlData[i] !== ")") {
+            contentModel += xmlData[i];
+            i++;
+        }
+        if (xmlData[i] !== ")") {
+            throw new Error("Unterminated content model");
+        }
+
+    }else{
+        throw new Error(`Invalid Element Expression, found "${xmlData[i]}"`);
+    }
+    
+    return {
+        elementName,
+        contentModel: contentModel.trim(),
+        index: i
+    };
+}
+
+function readAttlistExp(xmlData, i) {
+    // Skip leading whitespace after <!ATTLIST
+    i = skipWhitespace(xmlData, i);
+
+    // Read element name
+    let elementName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+        elementName += xmlData[i];
+        i++;
+    }
+
+    // Validate element name
+    validateEntityName(elementName)
+
+    // Skip whitespace after element name
+    i = skipWhitespace(xmlData, i);
+
+    // Read attribute name
+    let attributeName = "";
+    while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+        attributeName += xmlData[i];
+        i++;
+    }
+
+    // Validate attribute name
+    if (!validateEntityName(attributeName)) {
+        throw new Error(`Invalid attribute name: "${attributeName}"`);
+    }
+
+    // Skip whitespace after attribute name
+    i = skipWhitespace(xmlData, i);
+
+    // Read attribute type
+    let attributeType = "";
+    if (xmlData.substring(i, i + 8).toUpperCase() === "NOTATION") {
+        attributeType = "NOTATION";
+        i += 8; // Move past "NOTATION"
+
+        // Skip whitespace after "NOTATION"
+        i = skipWhitespace(xmlData, i);
+
+        // Expect '(' to start the list of notations
+        if (xmlData[i] !== "(") {
+            throw new Error(`Expected '(', found "${xmlData[i]}"`);
+        }
+        i++; // Move past '('
+
+        // Read the list of allowed notations
+        let allowedNotations = [];
+        while (i < xmlData.length && xmlData[i] !== ")") {
+            let notation = "";
+            while (i < xmlData.length && xmlData[i] !== "|" && xmlData[i] !== ")") {
+                notation += xmlData[i];
+                i++;
             }
+
+            // Validate notation name
+            notation = notation.trim();
+            if (!validateEntityName(notation)) {
+                throw new Error(`Invalid notation name: "${notation}"`);
+            }
+
+            allowedNotations.push(notation);
+
+            // Skip '|' separator or exit loop
+            if (xmlData[i] === "|") {
+                i++; // Move past '|'
+                i = skipWhitespace(xmlData, i); // Skip optional whitespace after '|'
+            }
+        }
+
+        if (xmlData[i] !== ")") {
+            throw new Error("Unterminated list of notations");
+        }
+        i++; // Move past ')'
+
+        // Store the allowed notations as part of the attribute type
+        attributeType += " (" + allowedNotations.join("|") + ")";
+    } else {
+        // Handle simple types (e.g., CDATA, ID, IDREF, etc.)
+        while (i < xmlData.length && !/\s/.test(xmlData[i])) {
+            attributeType += xmlData[i];
+            i++;
+        }
+
+        // Validate simple attribute type
+        const validTypes = ["CDATA", "ID", "IDREF", "IDREFS", "ENTITY", "ENTITIES", "NMTOKEN", "NMTOKENS"];
+        if (!validTypes.includes(attributeType.toUpperCase())) {
+            throw new Error(`Invalid attribute type: "${attributeType}"`);
+        }
+    }
+
+    // Skip whitespace after attribute type
+    i = skipWhitespace(xmlData, i);
+
+    // Read default value
+    let defaultValue = "";
+    if (xmlData.substring(i, i + 8).toUpperCase() === "#REQUIRED") {
+        defaultValue = "#REQUIRED";
+        i += 8;
+    } else if (xmlData.substring(i, i + 7).toUpperCase() === "#IMPLIED") {
+        defaultValue = "#IMPLIED";
+        i += 7;
+    } else {
+        [i, defaultValue] = readIdentifierVal(xmlData, i, "ATTLIST");
+    }
+
+    return {
+        elementName,
+        attributeName,
+        attributeType,
+        defaultValue,
+        index: i
+    }
+}
+
+function hasSeq(data, seq,i){
+    for(let j=0;j<seq.length;j++){
+        if(seq[j]!==data[i+j+1]) return false;
+    }
+    return true;
+}
+
+function validateEntityName(name){
+    if (isName(name))
+	return name;
+    else
+        throw new Error(`Invalid entity name ${name}`);
+}
+
+;// CONCATENATED MODULE: ./node_modules/strnum/strnum.js
+const hexRegex = /^[-+]?0x[a-fA-F0-9]+$/;
+const numRegex = /^([\-\+])?(0*)([0-9]*(\.[0-9]*)?)$/;
+// const octRegex = /^0x[a-z0-9]+/;
+// const binRegex = /0x[a-z0-9]+/;
+
+ 
+const consider = {
+    hex :  true,
+    // oct: false,
+    leadingZeros: true,
+    decimalPoint: "\.",
+    eNotation: true,
+    //skipLike: /regex/
+};
+
+function toNumber(str, options = {}){
+    options = Object.assign({}, consider, options );
+    if(!str || typeof str !== "string" ) return str;
+    
+    let trimmedStr  = str.trim();
+    
+    if(options.skipLike !== undefined && options.skipLike.test(trimmedStr)) return str;
+    else if(str==="0") return 0;
+    else if (options.hex && hexRegex.test(trimmedStr)) {
+        return parse_int(trimmedStr, 16);
+    // }else if (options.oct && octRegex.test(str)) {
+    //     return Number.parseInt(val, 8);
+    }else if (trimmedStr.search(/.+[eE].+/)!== -1) { //eNotation
+        return resolveEnotation(str,trimmedStr,options);
+    // }else if (options.parseBin && binRegex.test(str)) {
+    //     return Number.parseInt(val, 2);
+    }else{
+        //separate negative sign, leading zeros, and rest number
+        const match = numRegex.exec(trimmedStr);
+        // +00.123 => [ , '+', '00', '.123', ..
+        if(match){
+            const sign = match[1] || "";
+            const leadingZeros = match[2];
+            let numTrimmedByZeros = trimZeros(match[3]); //complete num without leading zeros
+            const decimalAdjacentToLeadingZeros = sign ? // 0., -00., 000.
+                str[leadingZeros.length+1] === "." 
+                : str[leadingZeros.length] === ".";
+
+            //trim ending zeros for floating number
+            if(!options.leadingZeros //leading zeros are not allowed
+                && (leadingZeros.length > 1 
+                    || (leadingZeros.length === 1 && !decimalAdjacentToLeadingZeros))){
+                // 00, 00.3, +03.24, 03, 03.24
+                return str;
+            }
+            else{//no leading zeros or leading zeros are allowed
+                const num = Number(trimmedStr);
+                const parsedStr = String(num);
+
+                if( num === 0) return num;
+                if(parsedStr.search(/[eE]/) !== -1){ //given number is long and parsed to eNotation
+                    if(options.eNotation) return num;
+                    else return str;
+                }else if(trimmedStr.indexOf(".") !== -1){ //floating number
+                    if(parsedStr === "0") return num; //0.0
+                    else if(parsedStr === numTrimmedByZeros) return num; //0.456. 0.79000
+                    else if( parsedStr === `${sign}${numTrimmedByZeros}`) return num;
+                    else return str;
+                }
+                
+                let n = leadingZeros? numTrimmedByZeros : trimmedStr;
+                if(leadingZeros){
+                    // -009 => -9
+                    return (n === parsedStr) || (sign+n === parsedStr) ? num : str
+                }else  {
+                    // +9
+                    return (n === parsedStr) || (n === sign+parsedStr) ? num : str
+                }
+            }
+        }else{ //non-numeric string
+            return str;
+        }
+    }
+}
+
+const eNotationRegx = /^([-+])?(0*)(\d*(\.\d*)?[eE][-\+]?\d+)$/;
+function resolveEnotation(str,trimmedStr,options){
+    if(!options.eNotation) return str;
+    const notation = trimmedStr.match(eNotationRegx); 
+    if(notation){
+        let sign = notation[1] || "";
+        const eChar = notation[3].indexOf("e") === -1 ? "E" : "e";
+        const leadingZeros = notation[2];
+        const eAdjacentToLeadingZeros = sign ? // 0E.
+            str[leadingZeros.length+1] === eChar 
+            : str[leadingZeros.length] === eChar;
+
+        if(leadingZeros.length > 1 && eAdjacentToLeadingZeros) return str;
+        else if(leadingZeros.length === 1 
+            && (notation[3].startsWith(`.${eChar}`) || notation[3][0] === eChar)){
+                return Number(trimmedStr);
+        }else if(options.leadingZeros && !eAdjacentToLeadingZeros){ //accept with leading zeros
+            //remove leading 0s
+            trimmedStr = (notation[1] || "") + notation[3];
+            return Number(trimmedStr);
+        }else return str;
+    }else{
+        return str;
+    }
+}
+
+/**
+ * 
+ * @param {string} numStr without leading zeros
+ * @returns 
+ */
+function trimZeros(numStr){
+    if(numStr && numStr.indexOf(".") !== -1){//float
+        numStr = numStr.replace(/0+$/, ""); //remove ending zeros
+        if(numStr === ".")  numStr = "0";
+        else if(numStr[0] === ".")  numStr = "0"+numStr;
+        else if(numStr[numStr.length-1] === ".")  numStr = numStr.substring(0,numStr.length-1);
+        return numStr;
+    }
+    return numStr;
+}
+
+function parse_int(numStr, base){
+    //polyfill
+    if(parseInt) return parseInt(numStr, base);
+    else if(Number.parseInt) return Number.parseInt(numStr, base);
+    else if(window && window.parseInt) return window.parseInt(numStr, base);
+    else throw new Error("parseInt, Number.parseInt, window.parseInt are not supported")
+}
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/ignoreAttributes.js
+function getIgnoreAttributesFn(ignoreAttributes) {
+    if (typeof ignoreAttributes === 'function') {
+        return ignoreAttributes
+    }
+    if (Array.isArray(ignoreAttributes)) {
+        return (attrName) => {
+            for (const pattern of ignoreAttributes) {
+                if (typeof pattern === 'string' && attrName === pattern) {
+                    return true
+                }
+                if (pattern instanceof RegExp && pattern.test(attrName)) {
+                    return true
+                }
+            }
+        }
+    }
+    return () => false
+}
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/xmlparser/OrderedObjParser.js
+
+///@ts-check
+
+
+
+
+
+
+
+// const regx =
+//   '<((!\\[CDATA\\[([\\s\\S]*?)(]]>))|((NAME:)?(NAME))([^>]*)>|((\\/)(NAME)\\s*>))([^<]*)'
+//   .replace(/NAME/g, util.nameRegexp);
+
+//const tagsRegx = new RegExp("<(\\/?[\\w:\\-\._]+)([^>]*)>(\\s*"+cdataRegx+")*([^<]+)?","g");
+//const tagsRegx = new RegExp("<(\\/?)((\\w*:)?([\\w:\\-\._]+))([^>]*)>([^<]*)("+cdataRegx+"([^<]*))*([^<]+)?","g");
+
+class OrderedObjParser{
+  constructor(options){
+    this.options = options;
+    this.currentNode = null;
+    this.tagsNodeStack = [];
+    this.docTypeEntities = {};
+    this.lastEntities = {
+      "apos" : { regex: /&(apos|#39|#x27);/g, val : "'"},
+      "gt" : { regex: /&(gt|#62|#x3E);/g, val : ">"},
+      "lt" : { regex: /&(lt|#60|#x3C);/g, val : "<"},
+      "quot" : { regex: /&(quot|#34|#x22);/g, val : "\""},
+    };
+    this.ampEntity = { regex: /&(amp|#38|#x26);/g, val : "&"};
+    this.htmlEntities = {
+      "space": { regex: /&(nbsp|#160);/g, val: " " },
+      // "lt" : { regex: /&(lt|#60);/g, val: "<" },
+      // "gt" : { regex: /&(gt|#62);/g, val: ">" },
+      // "amp" : { regex: /&(amp|#38);/g, val: "&" },
+      // "quot" : { regex: /&(quot|#34);/g, val: "\"" },
+      // "apos" : { regex: /&(apos|#39);/g, val: "'" },
+      "cent" : { regex: /&(cent|#162);/g, val: "¢" },
+      "pound" : { regex: /&(pound|#163);/g, val: "£" },
+      "yen" : { regex: /&(yen|#165);/g, val: "¥" },
+      "euro" : { regex: /&(euro|#8364);/g, val: "€" },
+      "copyright" : { regex: /&(copy|#169);/g, val: "©" },
+      "reg" : { regex: /&(reg|#174);/g, val: "®" },
+      "inr" : { regex: /&(inr|#8377);/g, val: "₹" },
+      "num_dec": { regex: /&#([0-9]{1,7});/g, val : (_, str) => String.fromCodePoint(Number.parseInt(str, 10)) },
+      "num_hex": { regex: /&#x([0-9a-fA-F]{1,6});/g, val : (_, str) => String.fromCodePoint(Number.parseInt(str, 16)) },
+    };
+    this.addExternalEntities = addExternalEntities;
+    this.parseXml = parseXml;
+    this.parseTextData = parseTextData;
+    this.resolveNameSpace = resolveNameSpace;
+    this.buildAttributesMap = buildAttributesMap;
+    this.isItStopNode = isItStopNode;
+    this.replaceEntitiesValue = replaceEntitiesValue;
+    this.readStopNodeData = readStopNodeData;
+    this.saveTextToParentTag = saveTextToParentTag;
+    this.addChild = addChild;
+    this.ignoreAttributesFn = getIgnoreAttributesFn(this.options.ignoreAttributes)
+  }
+
+}
+
+function addExternalEntities(externalEntities){
+  const entKeys = Object.keys(externalEntities);
+  for (let i = 0; i < entKeys.length; i++) {
+    const ent = entKeys[i];
+    this.lastEntities[ent] = {
+       regex: new RegExp("&"+ent+";","g"),
+       val : externalEntities[ent]
+    }
+  }
+}
+
+/**
+ * @param {string} val
+ * @param {string} tagName
+ * @param {string} jPath
+ * @param {boolean} dontTrim
+ * @param {boolean} hasAttributes
+ * @param {boolean} isLeafNode
+ * @param {boolean} escapeEntities
+ */
+function parseTextData(val, tagName, jPath, dontTrim, hasAttributes, isLeafNode, escapeEntities) {
+  if (val !== undefined) {
+    if (this.options.trimValues && !dontTrim) {
+      val = val.trim();
+    }
+    if(val.length > 0){
+      if(!escapeEntities) val = this.replaceEntitiesValue(val);
+      
+      const newval = this.options.tagValueProcessor(tagName, val, jPath, hasAttributes, isLeafNode);
+      if(newval === null || newval === undefined){
+        //don't parse
+        return val;
+      }else if(typeof newval !== typeof val || newval !== val){
+        //overwrite
+        return newval;
+      }else if(this.options.trimValues){
+        return parseValue(val, this.options.parseTagValue, this.options.numberParseOptions);
+      }else{
+        const trimmedVal = val.trim();
+        if(trimmedVal === val){
+          return parseValue(val, this.options.parseTagValue, this.options.numberParseOptions);
+        }else{
+          return val;
+        }
+      }
+    }
+  }
+}
+
+function resolveNameSpace(tagname) {
+  if (this.options.removeNSPrefix) {
+    const tags = tagname.split(':');
+    const prefix = tagname.charAt(0) === '/' ? '/' : '';
+    if (tags[0] === 'xmlns') {
+      return '';
+    }
+    if (tags.length === 2) {
+      tagname = prefix + tags[1];
+    }
+  }
+  return tagname;
+}
+
+//TODO: change regex to capture NS
+//const attrsRegx = new RegExp("([\\w\\-\\.\\:]+)\\s*=\\s*(['\"])((.|\n)*?)\\2","gm");
+const attrsRegx = new RegExp('([^\\s=]+)\\s*(=\\s*([\'"])([\\s\\S]*?)\\3)?', 'gm');
+
+function buildAttributesMap(attrStr, jPath, tagName) {
+  if (this.options.ignoreAttributes !== true && typeof attrStr === 'string') {
+    // attrStr = attrStr.replace(/\r?\n/g, ' ');
+    //attrStr = attrStr || attrStr.trim();
+
+    const matches = getAllMatches(attrStr, attrsRegx);
+    const len = matches.length; //don't make it inline
+    const attrs = {};
+    for (let i = 0; i < len; i++) {
+      const attrName = this.resolveNameSpace(matches[i][1]);
+      if (this.ignoreAttributesFn(attrName, jPath)) {
+        continue
+      }
+      let oldVal = matches[i][4];
+      let aName = this.options.attributeNamePrefix + attrName;
+      if (attrName.length) {
+        if (this.options.transformAttributeName) {
+          aName = this.options.transformAttributeName(aName);
+        }
+        if(aName === "__proto__") aName  = "#__proto__";
+        if (oldVal !== undefined) {
+          if (this.options.trimValues) {
+            oldVal = oldVal.trim();
+          }
+          oldVal = this.replaceEntitiesValue(oldVal);
+          const newVal = this.options.attributeValueProcessor(attrName, oldVal, jPath);
+          if(newVal === null || newVal === undefined){
+            //don't parse
+            attrs[aName] = oldVal;
+          }else if(typeof newVal !== typeof oldVal || newVal !== oldVal){
+            //overwrite
+            attrs[aName] = newVal;
+          }else{
+            //parse
+            attrs[aName] = parseValue(
+              oldVal,
+              this.options.parseAttributeValue,
+              this.options.numberParseOptions
+            );
+          }
+        } else if (this.options.allowBooleanAttributes) {
+          attrs[aName] = true;
+        }
+      }
+    }
+    if (!Object.keys(attrs).length) {
+      return;
+    }
+    if (this.options.attributesGroupName) {
+      const attrCollection = {};
+      attrCollection[this.options.attributesGroupName] = attrs;
+      return attrCollection;
+    }
+    return attrs
+  }
+}
+
+const parseXml = function(xmlData) {
+  xmlData = xmlData.replace(/\r\n?/g, "\n"); //TODO: remove this line
+  const xmlObj = new XmlNode('!xml');
+  let currentNode = xmlObj;
+  let textData = "";
+  let jPath = "";
+  for(let i=0; i< xmlData.length; i++){//for each char in XML data
+    const ch = xmlData[i];
+    if(ch === '<'){
+      // const nextIndex = i+1;
+      // const _2ndChar = xmlData[nextIndex];
+      if( xmlData[i+1] === '/') {//Closing Tag
+        const closeIndex = findClosingIndex(xmlData, ">", i, "Closing Tag is not closed.")
+        let tagName = xmlData.substring(i+2,closeIndex).trim();
+
+        if(this.options.removeNSPrefix){
+          const colonIndex = tagName.indexOf(":");
+          if(colonIndex !== -1){
+            tagName = tagName.substr(colonIndex+1);
+          }
+        }
+
+        if(this.options.transformTagName) {
+          tagName = this.options.transformTagName(tagName);
+        }
+
+        if(currentNode){
+          textData = this.saveTextToParentTag(textData, currentNode, jPath);
+        }
+
+        //check if last tag of nested tag was unpaired tag
+        const lastTagName = jPath.substring(jPath.lastIndexOf(".")+1);
+        if(tagName && this.options.unpairedTags.indexOf(tagName) !== -1 ){
+          throw new Error(`Unpaired tag can not be used as closing tag: </${tagName}>`);
+        }
+        let propIndex = 0
+        if(lastTagName && this.options.unpairedTags.indexOf(lastTagName) !== -1 ){
+          propIndex = jPath.lastIndexOf('.', jPath.lastIndexOf('.')-1)
+          this.tagsNodeStack.pop();
+        }else{
+          propIndex = jPath.lastIndexOf(".");
+        }
+        jPath = jPath.substring(0, propIndex);
+
+        currentNode = this.tagsNodeStack.pop();//avoid recursion, set the parent tag scope
+        textData = "";
+        i = closeIndex;
+      } else if( xmlData[i+1] === '?') {
+
+        let tagData = readTagExp(xmlData,i, false, "?>");
+        if(!tagData) throw new Error("Pi Tag is not closed.");
+
+        textData = this.saveTextToParentTag(textData, currentNode, jPath);
+        if( (this.options.ignoreDeclaration && tagData.tagName === "?xml") || this.options.ignorePiTags){
+
+        }else{
+  
+          const childNode = new XmlNode(tagData.tagName);
+          childNode.add(this.options.textNodeName, "");
+          
+          if(tagData.tagName !== tagData.tagExp && tagData.attrExpPresent){
+            childNode[":@"] = this.buildAttributesMap(tagData.tagExp, jPath, tagData.tagName);
+          }
+          this.addChild(currentNode, childNode, jPath, i);
+        }
+
+
+        i = tagData.closeIndex + 1;
+      } else if(xmlData.substr(i + 1, 3) === '!--') {
+        const endIndex = findClosingIndex(xmlData, "-->", i+4, "Comment is not closed.")
+        if(this.options.commentPropName){
+          const comment = xmlData.substring(i + 4, endIndex - 2);
+
+          textData = this.saveTextToParentTag(textData, currentNode, jPath);
+
+          currentNode.add(this.options.commentPropName, [ { [this.options.textNodeName] : comment } ]);
+        }
+        i = endIndex;
+      } else if( xmlData.substr(i + 1, 2) === '!D') {
+        const result = readDocType(xmlData, i);
+        this.docTypeEntities = result.entities;
+        i = result.i;
+      }else if(xmlData.substr(i + 1, 2) === '![') {
+        const closeIndex = findClosingIndex(xmlData, "]]>", i, "CDATA is not closed.") - 2;
+        const tagExp = xmlData.substring(i + 9,closeIndex);
+
+        textData = this.saveTextToParentTag(textData, currentNode, jPath);
+
+        let val = this.parseTextData(tagExp, currentNode.tagname, jPath, true, false, true, true);
+        if(val == undefined) val = "";
+
+        //cdata should be set even if it is 0 length string
+        if(this.options.cdataPropName){
+          currentNode.add(this.options.cdataPropName, [ { [this.options.textNodeName] : tagExp } ]);
+        }else{
+          currentNode.add(this.options.textNodeName, val);
+        }
+        
+        i = closeIndex + 2;
+      }else {//Opening tag
+        let result = readTagExp(xmlData,i, this.options.removeNSPrefix);
+        let tagName= result.tagName;
+        const rawTagName = result.rawTagName;
+        let tagExp = result.tagExp;
+        let attrExpPresent = result.attrExpPresent;
+        let closeIndex = result.closeIndex;
+
+        if (this.options.transformTagName) {
+          tagName = this.options.transformTagName(tagName);
+        }
+        
+        //save text as child node
+        if (currentNode && textData) {
+          if(currentNode.tagname !== '!xml'){
+            //when nested tag is found
+            textData = this.saveTextToParentTag(textData, currentNode, jPath, false);
+          }
+        }
+
+        //check if last tag was unpaired tag
+        const lastTag = currentNode;
+        if(lastTag && this.options.unpairedTags.indexOf(lastTag.tagname) !== -1 ){
+          currentNode = this.tagsNodeStack.pop();
+          jPath = jPath.substring(0, jPath.lastIndexOf("."));
+        }
+        if(tagName !== xmlObj.tagname){
+          jPath += jPath ? "." + tagName : tagName;
+        }
+        const startIndex = i;
+        if (this.isItStopNode(this.options.stopNodes, jPath, tagName)) {
+          let tagContent = "";
+          //self-closing tag
+          if(tagExp.length > 0 && tagExp.lastIndexOf("/") === tagExp.length - 1){
+            if(tagName[tagName.length - 1] === "/"){ //remove trailing '/'
+              tagName = tagName.substr(0, tagName.length - 1);
+              jPath = jPath.substr(0, jPath.length - 1);
+              tagExp = tagName;
+            }else{
+              tagExp = tagExp.substr(0, tagExp.length - 1);
+            }
+            i = result.closeIndex;
+          }
+          //unpaired tag
+          else if(this.options.unpairedTags.indexOf(tagName) !== -1){
+            
+            i = result.closeIndex;
+          }
+          //normal tag
+          else{
+            //read until closing tag is found
+            const result = this.readStopNodeData(xmlData, rawTagName, closeIndex + 1);
+            if(!result) throw new Error(`Unexpected end of ${rawTagName}`);
+            i = result.i;
+            tagContent = result.tagContent;
+          }
+
+          const childNode = new XmlNode(tagName);
+
+          if(tagName !== tagExp && attrExpPresent){
+            childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
+          }
+          if(tagContent) {
+            tagContent = this.parseTextData(tagContent, tagName, jPath, true, attrExpPresent, true, true);
+          }
+          
+          jPath = jPath.substr(0, jPath.lastIndexOf("."));
+          childNode.add(this.options.textNodeName, tagContent);
+          
+          this.addChild(currentNode, childNode, jPath, startIndex);
+        }else{
+  //selfClosing tag
+          if(tagExp.length > 0 && tagExp.lastIndexOf("/") === tagExp.length - 1){
+            if(tagName[tagName.length - 1] === "/"){ //remove trailing '/'
+              tagName = tagName.substr(0, tagName.length - 1);
+              jPath = jPath.substr(0, jPath.length - 1);
+              tagExp = tagName;
+            }else{
+              tagExp = tagExp.substr(0, tagExp.length - 1);
+            }
+            
+            if(this.options.transformTagName) {
+              tagName = this.options.transformTagName(tagName);
+            }
+
+            const childNode = new XmlNode(tagName);
+            if(tagName !== tagExp && attrExpPresent){
+              childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
+            }
+            this.addChild(currentNode, childNode, jPath, startIndex);
+            jPath = jPath.substr(0, jPath.lastIndexOf("."));
+          }
+    //opening tag
+          else{
+            const childNode = new XmlNode( tagName);
+            this.tagsNodeStack.push(currentNode);
+            
+            if(tagName !== tagExp && attrExpPresent){
+              childNode[":@"] = this.buildAttributesMap(tagExp, jPath, tagName);
+            }
+            this.addChild(currentNode, childNode, jPath, startIndex);
+            currentNode = childNode;
+          }
+          textData = "";
+          i = closeIndex;
+        }
+      }
+    }else{
+      textData += xmlData[i];
+    }
+  }
+  return xmlObj.child;
+}
+
+function addChild(currentNode, childNode, jPath, startIndex){
+  // unset startIndex if not requested
+  if (!this.options.captureMetaData) startIndex = undefined;
+  const result = this.options.updateTag(childNode.tagname, jPath, childNode[":@"])
+  if(result === false){
+  } else if(typeof result === "string"){
+    childNode.tagname = result
+    currentNode.addChild(childNode, startIndex);
+  }else{
+    currentNode.addChild(childNode, startIndex);
+  }
+}
+
+const replaceEntitiesValue = function(val){
+
+  if(this.options.processEntities){
+    for(let entityName in this.docTypeEntities){
+      const entity = this.docTypeEntities[entityName];
+      val = val.replace( entity.regx, entity.val);
+    }
+    for(let entityName in this.lastEntities){
+      const entity = this.lastEntities[entityName];
+      val = val.replace( entity.regex, entity.val);
+    }
+    if(this.options.htmlEntities){
+      for(let entityName in this.htmlEntities){
+        const entity = this.htmlEntities[entityName];
+        val = val.replace( entity.regex, entity.val);
+      }
+    }
+    val = val.replace( this.ampEntity.regex, this.ampEntity.val);
+  }
+  return val;
+}
+function saveTextToParentTag(textData, currentNode, jPath, isLeafNode) {
+  if (textData) { //store previously collected data as textNode
+    if(isLeafNode === undefined) isLeafNode = currentNode.child.length === 0
+    
+    textData = this.parseTextData(textData,
+      currentNode.tagname,
+      jPath,
+      false,
+      currentNode[":@"] ? Object.keys(currentNode[":@"]).length !== 0 : false,
+      isLeafNode);
+
+    if (textData !== undefined && textData !== "")
+      currentNode.add(this.options.textNodeName, textData);
+    textData = "";
+  }
+  return textData;
+}
+
+//TODO: use jPath to simplify the logic
+/**
+ * 
+ * @param {string[]} stopNodes 
+ * @param {string} jPath
+ * @param {string} currentTagName 
+ */
+function isItStopNode(stopNodes, jPath, currentTagName){
+  const allNodesExp = "*." + currentTagName;
+  for (const stopNodePath in stopNodes) {
+    const stopNodeExp = stopNodes[stopNodePath];
+    if( allNodesExp === stopNodeExp || jPath === stopNodeExp  ) return true;
+  }
+  return false;
+}
+
+/**
+ * Returns the tag Expression and where it is ending handling single-double quotes situation
+ * @param {string} xmlData 
+ * @param {number} i starting index
+ * @returns 
+ */
+function tagExpWithClosingIndex(xmlData, i, closingChar = ">"){
+  let attrBoundary;
+  let tagExp = "";
+  for (let index = i; index < xmlData.length; index++) {
+    let ch = xmlData[index];
+    if (attrBoundary) {
+        if (ch === attrBoundary) attrBoundary = "";//reset
+    } else if (ch === '"' || ch === "'") {
+        attrBoundary = ch;
+    } else if (ch === closingChar[0]) {
+      if(closingChar[1]){
+        if(xmlData[index + 1] === closingChar[1]){
+          return {
+            data: tagExp,
+            index: index
+          }
+        }
+      }else{
+        return {
+          data: tagExp,
+          index: index
+        }
+      }
+    } else if (ch === '\t') {
+      ch = " "
+    }
+    tagExp += ch;
+  }
+}
+
+function findClosingIndex(xmlData, str, i, errMsg){
+  const closingIndex = xmlData.indexOf(str, i);
+  if(closingIndex === -1){
+    throw new Error(errMsg)
+  }else{
+    return closingIndex + str.length - 1;
+  }
+}
+
+function readTagExp(xmlData,i, removeNSPrefix, closingChar = ">"){
+  const result = tagExpWithClosingIndex(xmlData, i+1, closingChar);
+  if(!result) return;
+  let tagExp = result.data;
+  const closeIndex = result.index;
+  const separatorIndex = tagExp.search(/\s/);
+  let tagName = tagExp;
+  let attrExpPresent = true;
+  if(separatorIndex !== -1){//separate tag name and attributes expression
+    tagName = tagExp.substring(0, separatorIndex);
+    tagExp = tagExp.substring(separatorIndex + 1).trimStart();
+  }
+
+  const rawTagName = tagName;
+  if(removeNSPrefix){
+    const colonIndex = tagName.indexOf(":");
+    if(colonIndex !== -1){
+      tagName = tagName.substr(colonIndex+1);
+      attrExpPresent = tagName !== result.data.substr(colonIndex + 1);
+    }
+  }
+
+  return {
+    tagName: tagName,
+    tagExp: tagExp,
+    closeIndex: closeIndex,
+    attrExpPresent: attrExpPresent,
+    rawTagName: rawTagName,
+  }
+}
+/**
+ * find paired tag for a stop node
+ * @param {string} xmlData 
+ * @param {string} tagName 
+ * @param {number} i 
+ */
+function readStopNodeData(xmlData, tagName, i){
+  const startIndex = i;
+  // Starting at 1 since we already have an open tag
+  let openTagCount = 1;
+
+  for (; i < xmlData.length; i++) {
+    if( xmlData[i] === "<"){ 
+      if (xmlData[i+1] === "/") {//close tag
+          const closeIndex = findClosingIndex(xmlData, ">", i, `${tagName} is not closed`);
+          let closeTagName = xmlData.substring(i+2,closeIndex).trim();
+          if(closeTagName === tagName){
+            openTagCount--;
+            if (openTagCount === 0) {
+              return {
+                tagContent: xmlData.substring(startIndex, i),
+                i : closeIndex
+              }
+            }
+          }
+          i=closeIndex;
+        } else if(xmlData[i+1] === '?') { 
+          const closeIndex = findClosingIndex(xmlData, "?>", i+1, "StopNode is not closed.")
+          i=closeIndex;
+        } else if(xmlData.substr(i + 1, 3) === '!--') { 
+          const closeIndex = findClosingIndex(xmlData, "-->", i+3, "StopNode is not closed.")
+          i=closeIndex;
+        } else if(xmlData.substr(i + 1, 2) === '![') { 
+          const closeIndex = findClosingIndex(xmlData, "]]>", i, "StopNode is not closed.") - 2;
+          i=closeIndex;
+        } else {
+          const tagData = readTagExp(xmlData, i, '>')
+
+          if (tagData) {
+            const openTagName = tagData && tagData.tagName;
+            if (openTagName === tagName && tagData.tagExp[tagData.tagExp.length-1] !== "/") {
+              openTagCount++;
+            }
+            i=tagData.closeIndex;
+          }
+        }
+      }
+  }//end for loop
+}
+
+function parseValue(val, shouldParse, options) {
+  if (shouldParse && typeof val === 'string') {
+    //console.log(options)
+    const newval = val.trim();
+    if(newval === 'true' ) return true;
+    else if(newval === 'false' ) return false;
+    else return toNumber(val, options);
+  } else {
+    if (isExist(val)) {
+      return val;
+    } else {
+      return '';
+    }
+  }
+}
+
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/xmlparser/node2json.js
+
+
+
+
+const node2json_METADATA_SYMBOL = XmlNode.getMetaDataSymbol();
+
+/**
+ * 
+ * @param {array} node 
+ * @param {any} options 
+ * @returns 
+ */
+function prettify(node, options){
+  return compress( node, options);
+}
+
+/**
+ * 
+ * @param {array} arr 
+ * @param {object} options 
+ * @param {string} jPath 
+ * @returns object
+ */
+function compress(arr, options, jPath){
+  let text;
+  const compressedObj = {};
+  for (let i = 0; i < arr.length; i++) {
+    const tagObj = arr[i];
+    const property = propName(tagObj);
+    let newJpath = "";
+    if(jPath === undefined) newJpath = property;
+    else newJpath = jPath + "." + property;
+
+    if(property === options.textNodeName){
+      if(text === undefined) text = tagObj[property];
+      else text += "" + tagObj[property];
+    }else if(property === undefined){
+      continue;
+    }else if(tagObj[property]){
+      
+      let val = compress(tagObj[property], options, newJpath);
+      const isLeaf = isLeafTag(val, options);
+      if (tagObj[node2json_METADATA_SYMBOL] !== undefined) {
+        val[node2json_METADATA_SYMBOL] = tagObj[node2json_METADATA_SYMBOL]; // copy over metadata
+      }
+
+      if(tagObj[":@"]){
+        assignAttributes( val, tagObj[":@"], newJpath, options);
+      }else if(Object.keys(val).length === 1 && val[options.textNodeName] !== undefined && !options.alwaysCreateTextNode){
+        val = val[options.textNodeName];
+      }else if(Object.keys(val).length === 0){
+        if(options.alwaysCreateTextNode) val[options.textNodeName] = "";
+        else val = "";
+      }
+
+      if(compressedObj[property] !== undefined && compressedObj.hasOwnProperty(property)) {
+        if(!Array.isArray(compressedObj[property])) {
+            compressedObj[property] = [ compressedObj[property] ];
+        }
+        compressedObj[property].push(val);
+      }else{
+        //TODO: if a node is not an array, then check if it should be an array
+        //also determine if it is a leaf node
+        if (options.isArray(property, newJpath, isLeaf )) {
+          compressedObj[property] = [val];
+        }else{
+          compressedObj[property] = val;
+        }
+      }
+    }
+    
+  }
+  // if(text && text.length > 0) compressedObj[options.textNodeName] = text;
+  if(typeof text === "string"){
+    if(text.length > 0) compressedObj[options.textNodeName] = text;
+  }else if(text !== undefined) compressedObj[options.textNodeName] = text;
+  return compressedObj;
+}
+
+function propName(obj){
+  const keys = Object.keys(obj);
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    if(key !== ":@") return key;
+  }
+}
+
+function assignAttributes(obj, attrMap, jpath, options){
+  if (attrMap) {
+    const keys = Object.keys(attrMap);
+    const len = keys.length; //don't make it inline
+    for (let i = 0; i < len; i++) {
+      const atrrName = keys[i];
+      if (options.isArray(atrrName, jpath + "." + atrrName, true, true)) {
+        obj[atrrName] = [ attrMap[atrrName] ];
+      } else {
+        obj[atrrName] = attrMap[atrrName];
+      }
+    }
+  }
+}
+
+function isLeafTag(obj, options){
+  const { textNodeName } = options;
+  const propCount = Object.keys(obj).length;
+  
+  if (propCount === 0) {
+    return true;
+  }
+
+  if (
+    propCount === 1 &&
+    (obj[textNodeName] || typeof obj[textNodeName] === "boolean" || obj[textNodeName] === 0)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/validator.js
+
+
+
+
+const validator_defaultOptions = {
+  allowBooleanAttributes: false, //A tag can have attributes without any value
+  unpairedTags: []
+};
+
+//const tagsPattern = new RegExp("<\\/?([\\w:\\-_\.]+)\\s*\/?>","g");
+function validate(xmlData, options) {
+  options = Object.assign({}, validator_defaultOptions, options);
+
+  //xmlData = xmlData.replace(/(\r\n|\n|\r)/gm,"");//make it single line
+  //xmlData = xmlData.replace(/(^\s*<\?xml.*?\?>)/g,"");//Remove XML starting tag
+  //xmlData = xmlData.replace(/(<!DOCTYPE[\s\w\"\.\/\-\:]+(\[.*\])*\s*>)/g,"");//Remove DOCTYPE
+  const tags = [];
+  let tagFound = false;
+
+  //indicates that the root tag has been closed (aka. depth 0 has been reached)
+  let reachedRoot = false;
+
+  if (xmlData[0] === '\ufeff') {
+    // check for byte order mark (BOM)
+    xmlData = xmlData.substr(1);
+  }
+  
+  for (let i = 0; i < xmlData.length; i++) {
+
+    if (xmlData[i] === '<' && xmlData[i+1] === '?') {
+      i+=2;
+      i = readPI(xmlData,i);
+      if (i.err) return i;
+    }else if (xmlData[i] === '<') {
+      //starting of tag
+      //read until you reach to '>' avoiding any '>' in attribute value
+      let tagStartPos = i;
+      i++;
+      
+      if (xmlData[i] === '!') {
+        i = readCommentAndCDATA(xmlData, i);
+        continue;
+      } else {
+        let closingTag = false;
+        if (xmlData[i] === '/') {
+          //closing tag
+          closingTag = true;
+          i++;
+        }
+        //read tagname
+        let tagName = '';
+        for (; i < xmlData.length &&
+          xmlData[i] !== '>' &&
+          xmlData[i] !== ' ' &&
+          xmlData[i] !== '\t' &&
+          xmlData[i] !== '\n' &&
+          xmlData[i] !== '\r'; i++
+        ) {
+          tagName += xmlData[i];
+        }
+        tagName = tagName.trim();
+        //console.log(tagName);
+
+        if (tagName[tagName.length - 1] === '/') {
+          //self closing tag without attributes
+          tagName = tagName.substring(0, tagName.length - 1);
+          //continue;
+          i--;
+        }
+        if (!validateTagName(tagName)) {
+          let msg;
+          if (tagName.trim().length === 0) {
+            msg = "Invalid space after '<'.";
+          } else {
+            msg = "Tag '"+tagName+"' is an invalid name.";
+          }
+          return getErrorObject('InvalidTag', msg, getLineNumberForPosition(xmlData, i));
+        }
+
+        const result = readAttributeStr(xmlData, i);
+        if (result === false) {
+          return getErrorObject('InvalidAttr', "Attributes for '"+tagName+"' have open quote.", getLineNumberForPosition(xmlData, i));
+        }
+        let attrStr = result.value;
+        i = result.index;
+
+        if (attrStr[attrStr.length - 1] === '/') {
+          //self closing tag
+          const attrStrStart = i - attrStr.length;
+          attrStr = attrStr.substring(0, attrStr.length - 1);
+          const isValid = validateAttributeString(attrStr, options);
+          if (isValid === true) {
+            tagFound = true;
+            //continue; //text may presents after self closing tag
+          } else {
+            //the result from the nested function returns the position of the error within the attribute
+            //in order to get the 'true' error line, we need to calculate the position where the attribute begins (i - attrStr.length) and then add the position within the attribute
+            //this gives us the absolute index in the entire xml, which we can use to find the line at last
+            return getErrorObject(isValid.err.code, isValid.err.msg, getLineNumberForPosition(xmlData, attrStrStart + isValid.err.line));
+          }
+        } else if (closingTag) {
+          if (!result.tagClosed) {
+            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' doesn't have proper closing.", getLineNumberForPosition(xmlData, i));
+          } else if (attrStr.trim().length > 0) {
+            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' can't have attributes or invalid starting.", getLineNumberForPosition(xmlData, tagStartPos));
+          } else if (tags.length === 0) {
+            return getErrorObject('InvalidTag', "Closing tag '"+tagName+"' has not been opened.", getLineNumberForPosition(xmlData, tagStartPos));
+          } else {
+            const otg = tags.pop();
+            if (tagName !== otg.tagName) {
+              let openPos = getLineNumberForPosition(xmlData, otg.tagStartPos);
+              return getErrorObject('InvalidTag',
+                "Expected closing tag '"+otg.tagName+"' (opened in line "+openPos.line+", col "+openPos.col+") instead of closing tag '"+tagName+"'.",
+                getLineNumberForPosition(xmlData, tagStartPos));
+            }
+
+            //when there are no more tags, we reached the root level.
+            if (tags.length == 0) {
+              reachedRoot = true;
+            }
+          }
+        } else {
+          const isValid = validateAttributeString(attrStr, options);
+          if (isValid !== true) {
+            //the result from the nested function returns the position of the error within the attribute
+            //in order to get the 'true' error line, we need to calculate the position where the attribute begins (i - attrStr.length) and then add the position within the attribute
+            //this gives us the absolute index in the entire xml, which we can use to find the line at last
+            return getErrorObject(isValid.err.code, isValid.err.msg, getLineNumberForPosition(xmlData, i - attrStr.length + isValid.err.line));
+          }
+
+          //if the root level has been reached before ...
+          if (reachedRoot === true) {
+            return getErrorObject('InvalidXml', 'Multiple possible root nodes found.', getLineNumberForPosition(xmlData, i));
+          } else if(options.unpairedTags.indexOf(tagName) !== -1){
+            //don't push into stack
+          } else {
+            tags.push({tagName, tagStartPos});
+          }
+          tagFound = true;
+        }
+
+        //skip tag text value
+        //It may include comments and CDATA value
+        for (i++; i < xmlData.length; i++) {
+          if (xmlData[i] === '<') {
+            if (xmlData[i + 1] === '!') {
+              //comment or CADATA
+              i++;
+              i = readCommentAndCDATA(xmlData, i);
+              continue;
+            } else if (xmlData[i+1] === '?') {
+              i = readPI(xmlData, ++i);
+              if (i.err) return i;
+            } else{
+              break;
+            }
+          } else if (xmlData[i] === '&') {
+            const afterAmp = validateAmpersand(xmlData, i);
+            if (afterAmp == -1)
+              return getErrorObject('InvalidChar', "char '&' is not expected.", getLineNumberForPosition(xmlData, i));
+            i = afterAmp;
+          }else{
+            if (reachedRoot === true && !isWhiteSpace(xmlData[i])) {
+              return getErrorObject('InvalidXml', "Extra text at the end", getLineNumberForPosition(xmlData, i));
+            }
+          }
+        } //end of reading tag text value
+        if (xmlData[i] === '<') {
+          i--;
+        }
+      }
+    } else {
+      if ( isWhiteSpace(xmlData[i])) {
+        continue;
+      }
+      return getErrorObject('InvalidChar', "char '"+xmlData[i]+"' is not expected.", getLineNumberForPosition(xmlData, i));
+    }
+  }
+
+  if (!tagFound) {
+    return getErrorObject('InvalidXml', 'Start tag expected.', 1);
+  }else if (tags.length == 1) {
+      return getErrorObject('InvalidTag', "Unclosed tag '"+tags[0].tagName+"'.", getLineNumberForPosition(xmlData, tags[0].tagStartPos));
+  }else if (tags.length > 0) {
+      return getErrorObject('InvalidXml', "Invalid '"+
+          JSON.stringify(tags.map(t => t.tagName), null, 4).replace(/\r?\n/g, '')+
+          "' found.", {line: 1, col: 1});
+  }
+
+  return true;
+};
+
+function isWhiteSpace(char){
+  return char === ' ' || char === '\t' || char === '\n'  || char === '\r';
+}
+/**
+ * Read Processing insstructions and skip
+ * @param {*} xmlData
+ * @param {*} i
+ */
+function readPI(xmlData, i) {
+  const start = i;
+  for (; i < xmlData.length; i++) {
+    if (xmlData[i] == '?' || xmlData[i] == ' ') {
+      //tagname
+      const tagname = xmlData.substr(start, i - start);
+      if (i > 5 && tagname === 'xml') {
+        return getErrorObject('InvalidXml', 'XML declaration allowed only at the start of the document.', getLineNumberForPosition(xmlData, i));
+      } else if (xmlData[i] == '?' && xmlData[i + 1] == '>') {
+        //check if valid attribut string
+        i++;
+        break;
+      } else {
+        continue;
+      }
+    }
+  }
+  return i;
+}
+
+function readCommentAndCDATA(xmlData, i) {
+  if (xmlData.length > i + 5 && xmlData[i + 1] === '-' && xmlData[i + 2] === '-') {
+    //comment
+    for (i += 3; i < xmlData.length; i++) {
+      if (xmlData[i] === '-' && xmlData[i + 1] === '-' && xmlData[i + 2] === '>') {
+        i += 2;
+        break;
+      }
+    }
+  } else if (
+    xmlData.length > i + 8 &&
+    xmlData[i + 1] === 'D' &&
+    xmlData[i + 2] === 'O' &&
+    xmlData[i + 3] === 'C' &&
+    xmlData[i + 4] === 'T' &&
+    xmlData[i + 5] === 'Y' &&
+    xmlData[i + 6] === 'P' &&
+    xmlData[i + 7] === 'E'
+  ) {
+    let angleBracketsCount = 1;
+    for (i += 8; i < xmlData.length; i++) {
+      if (xmlData[i] === '<') {
+        angleBracketsCount++;
+      } else if (xmlData[i] === '>') {
+        angleBracketsCount--;
+        if (angleBracketsCount === 0) {
+          break;
+        }
+      }
+    }
+  } else if (
+    xmlData.length > i + 9 &&
+    xmlData[i + 1] === '[' &&
+    xmlData[i + 2] === 'C' &&
+    xmlData[i + 3] === 'D' &&
+    xmlData[i + 4] === 'A' &&
+    xmlData[i + 5] === 'T' &&
+    xmlData[i + 6] === 'A' &&
+    xmlData[i + 7] === '['
+  ) {
+    for (i += 8; i < xmlData.length; i++) {
+      if (xmlData[i] === ']' && xmlData[i + 1] === ']' && xmlData[i + 2] === '>') {
+        i += 2;
+        break;
+      }
+    }
+  }
+
+  return i;
+}
+
+const doubleQuote = '"';
+const singleQuote = "'";
+
+/**
+ * Keep reading xmlData until '<' is found outside the attribute value.
+ * @param {string} xmlData
+ * @param {number} i
+ */
+function readAttributeStr(xmlData, i) {
+  let attrStr = '';
+  let startChar = '';
+  let tagClosed = false;
+  for (; i < xmlData.length; i++) {
+    if (xmlData[i] === doubleQuote || xmlData[i] === singleQuote) {
+      if (startChar === '') {
+        startChar = xmlData[i];
+      } else if (startChar !== xmlData[i]) {
+        //if vaue is enclosed with double quote then single quotes are allowed inside the value and vice versa
+      } else {
+        startChar = '';
+      }
+    } else if (xmlData[i] === '>') {
+      if (startChar === '') {
+        tagClosed = true;
+        break;
+      }
+    }
+    attrStr += xmlData[i];
+  }
+  if (startChar !== '') {
+    return false;
+  }
+
+  return {
+    value: attrStr,
+    index: i,
+    tagClosed: tagClosed
+  };
+}
+
+/**
+ * Select all the attributes whether valid or invalid.
+ */
+const validAttrStrRegxp = new RegExp('(\\s*)([^\\s=]+)(\\s*=)?(\\s*([\'"])(([\\s\\S])*?)\\5)?', 'g');
+
+//attr, ="sd", a="amit's", a="sd"b="saf", ab  cd=""
+
+function validateAttributeString(attrStr, options) {
+  //console.log("start:"+attrStr+":end");
+
+  //if(attrStr.trim().length === 0) return true; //empty string
+
+  const matches = getAllMatches(attrStr, validAttrStrRegxp);
+  const attrNames = {};
+
+  for (let i = 0; i < matches.length; i++) {
+    if (matches[i][1].length === 0) {
+      //nospace before attribute name: a="sd"b="saf"
+      return getErrorObject('InvalidAttr', "Attribute '"+matches[i][2]+"' has no space in starting.", getPositionFromMatch(matches[i]))
+    } else if (matches[i][3] !== undefined && matches[i][4] === undefined) {
+      return getErrorObject('InvalidAttr', "Attribute '"+matches[i][2]+"' is without value.", getPositionFromMatch(matches[i]));
+    } else if (matches[i][3] === undefined && !options.allowBooleanAttributes) {
+      //independent attribute: ab
+      return getErrorObject('InvalidAttr', "boolean attribute '"+matches[i][2]+"' is not allowed.", getPositionFromMatch(matches[i]));
+    }
+    /* else if(matches[i][6] === undefined){//attribute without value: ab=
+                    return { err: { code:"InvalidAttr",msg:"attribute " + matches[i][2] + " has no value assigned."}};
+                } */
+    const attrName = matches[i][2];
+    if (!validateAttrName(attrName)) {
+      return getErrorObject('InvalidAttr', "Attribute '"+attrName+"' is an invalid name.", getPositionFromMatch(matches[i]));
+    }
+    if (!attrNames.hasOwnProperty(attrName)) {
+      //check for duplicate attribute.
+      attrNames[attrName] = 1;
+    } else {
+      return getErrorObject('InvalidAttr', "Attribute '"+attrName+"' is repeated.", getPositionFromMatch(matches[i]));
+    }
+  }
+
+  return true;
+}
+
+function validateNumberAmpersand(xmlData, i) {
+  let re = /\d/;
+  if (xmlData[i] === 'x') {
+    i++;
+    re = /[\da-fA-F]/;
+  }
+  for (; i < xmlData.length; i++) {
+    if (xmlData[i] === ';')
+      return i;
+    if (!xmlData[i].match(re))
+      break;
+  }
+  return -1;
+}
+
+function validateAmpersand(xmlData, i) {
+  // https://www.w3.org/TR/xml/#dt-charref
+  i++;
+  if (xmlData[i] === ';')
+    return -1;
+  if (xmlData[i] === '#') {
+    i++;
+    return validateNumberAmpersand(xmlData, i);
+  }
+  let count = 0;
+  for (; i < xmlData.length; i++, count++) {
+    if (xmlData[i].match(/\w/) && count < 20)
+      continue;
+    if (xmlData[i] === ';')
+      break;
+    return -1;
+  }
+  return i;
+}
+
+function getErrorObject(code, message, lineNumber) {
+  return {
+    err: {
+      code: code,
+      msg: message,
+      line: lineNumber.line || lineNumber,
+      col: lineNumber.col,
+    },
+  };
+}
+
+function validateAttrName(attrName) {
+  return isName(attrName);
+}
+
+// const startsWithXML = /^xml/i;
+
+function validateTagName(tagname) {
+  return isName(tagname) /* && !tagname.match(startsWithXML) */;
+}
+
+//this function returns the line number for the character at the given index
+function getLineNumberForPosition(xmlData, index) {
+  const lines = xmlData.substring(0, index).split(/\r?\n/);
+  return {
+    line: lines.length,
+
+    // column number is last line's length + 1, because column numbering starts at 1:
+    col: lines[lines.length - 1].length + 1
+  };
+}
+
+//this function returns the position of the first character of match within attrStr
+function getPositionFromMatch(match) {
+  return match.startIndex + match[1].length;
+}
+
+;// CONCATENATED MODULE: ./node_modules/fast-xml-parser/src/xmlparser/XMLParser.js
+
+
+
+
+
+
+class XMLParser{
+    
+    constructor(options){
+        this.externalEntities = {};
+        this.options = buildOptions(options);
+        
+    }
+    /**
+     * Parse XML dats to JS object 
+     * @param {string|Buffer} xmlData 
+     * @param {boolean|Object} validationOption 
+     */
+    parse(xmlData,validationOption){
+        if(typeof xmlData === "string"){
+        }else if( xmlData.toString){
+            xmlData = xmlData.toString();
+        }else{
+            throw new Error("XML data is accepted in String or Bytes[] form.")
+        }
+        if( validationOption){
+            if(validationOption === true) validationOption = {}; //validate with default options
+            
+            const result = validate(xmlData, validationOption);
+            if (result !== true) {
+              throw Error( `${result.err.msg}:${result.err.line}:${result.err.col}` )
+            }
+          }
+        const orderedObjParser = new OrderedObjParser(this.options);
+        orderedObjParser.addExternalEntities(this.externalEntities);
+        const orderedResult = orderedObjParser.parseXml(xmlData);
+        if(this.options.preserveOrder || orderedResult === undefined) return orderedResult;
+        else return prettify(orderedResult, this.options);
+    }
+
+    /**
+     * Add Entity which is not by default supported by this library
+     * @param {string} key 
+     * @param {string} value 
+     */
+    addEntity(key, value){
+        if(value.indexOf("&") !== -1){
+            throw new Error("Entity value can't have '&'")
+        }else if(key.indexOf("&") !== -1 || key.indexOf(";") !== -1){
+            throw new Error("An entity must be set without '&' and ';'. Eg. use '#xD' for '&#xD;'")
+        }else if(value === "&"){
+            throw new Error("An entity with value '&' is not permitted");
+        }else{
+            this.externalEntities[key] = value;
+        }
+    }
+
+    /**
+     * Returns a Symbol that can be used to access the metadata
+     * property on a node.
+     * 
+     * If Symbol is not available in the environment, an ordinary property is used
+     * and the name of the property is here returned.
+     * 
+     * The XMLMetaData property is only present when `captureMetaData`
+     * is true in the options.
+     */
+    static getMetaDataSymbol() {
+        return XmlNode.getMetaDataSymbol();
+    }
+}
+
+// EXTERNAL MODULE: external "fs"
+var external_fs_ = __nccwpck_require__(9896);
+;// CONCATENATED MODULE: external "fs/promises"
+const promises_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("fs/promises");
+;// CONCATENATED MODULE: ./node_modules/@isaacs/balanced-match/dist/esm/index.js
+const balanced = (a, b, str) => {
+    const ma = a instanceof RegExp ? maybeMatch(a, str) : a;
+    const mb = b instanceof RegExp ? maybeMatch(b, str) : b;
+    const r = ma !== null && mb != null && range(ma, mb, str);
+    return (r && {
+        start: r[0],
+        end: r[1],
+        pre: str.slice(0, r[0]),
+        body: str.slice(r[0] + ma.length, r[1]),
+        post: str.slice(r[1] + mb.length),
+    });
+};
+const maybeMatch = (reg, str) => {
+    const m = str.match(reg);
+    return m ? m[0] : null;
+};
+const range = (a, b, str) => {
+    let begs, beg, left, right = undefined, result;
+    let ai = str.indexOf(a);
+    let bi = str.indexOf(b, ai + 1);
+    let i = ai;
+    if (ai >= 0 && bi > 0) {
+        if (a === b) {
+            return [ai, bi];
+        }
+        begs = [];
+        left = str.length;
+        while (i >= 0 && !result) {
+            if (i === ai) {
+                begs.push(i);
+                ai = str.indexOf(a, i + 1);
+            }
+            else if (begs.length === 1) {
+                const r = begs.pop();
+                if (r !== undefined)
+                    result = [r, bi];
+            }
+            else {
+                beg = begs.pop();
+                if (beg !== undefined && beg < left) {
+                    left = beg;
+                    right = bi;
+                }
+                bi = str.indexOf(b, i + 1);
+            }
+            i = ai < bi && ai >= 0 ? ai : bi;
+        }
+        if (begs.length && right !== undefined) {
+            result = [left, right];
+        }
+    }
+    return result;
+};
+//# sourceMappingURL=index.js.map
+;// CONCATENATED MODULE: ./node_modules/@isaacs/brace-expansion/dist/esm/index.js
+
+const escSlash = '\0SLASH' + Math.random() + '\0';
+const escOpen = '\0OPEN' + Math.random() + '\0';
+const escClose = '\0CLOSE' + Math.random() + '\0';
+const escComma = '\0COMMA' + Math.random() + '\0';
+const escPeriod = '\0PERIOD' + Math.random() + '\0';
+const escSlashPattern = new RegExp(escSlash, 'g');
+const escOpenPattern = new RegExp(escOpen, 'g');
+const escClosePattern = new RegExp(escClose, 'g');
+const escCommaPattern = new RegExp(escComma, 'g');
+const escPeriodPattern = new RegExp(escPeriod, 'g');
+const slashPattern = /\\\\/g;
+const openPattern = /\\{/g;
+const closePattern = /\\}/g;
+const commaPattern = /\\,/g;
+const periodPattern = /\\./g;
+function numeric(str) {
+    return !isNaN(str) ? parseInt(str, 10) : str.charCodeAt(0);
+}
+function escapeBraces(str) {
+    return str
+        .replace(slashPattern, escSlash)
+        .replace(openPattern, escOpen)
+        .replace(closePattern, escClose)
+        .replace(commaPattern, escComma)
+        .replace(periodPattern, escPeriod);
+}
+function unescapeBraces(str) {
+    return str
+        .replace(escSlashPattern, '\\')
+        .replace(escOpenPattern, '{')
+        .replace(escClosePattern, '}')
+        .replace(escCommaPattern, ',')
+        .replace(escPeriodPattern, '.');
+}
+/**
+ * Basically just str.split(","), but handling cases
+ * where we have nested braced sections, which should be
+ * treated as individual members, like {a,{b,c},d}
+ */
+function parseCommaParts(str) {
+    if (!str) {
+        return [''];
+    }
+    const parts = [];
+    const m = balanced('{', '}', str);
+    if (!m) {
+        return str.split(',');
+    }
+    const { pre, body, post } = m;
+    const p = pre.split(',');
+    p[p.length - 1] += '{' + body + '}';
+    const postParts = parseCommaParts(post);
+    if (post.length) {
+        ;
+        p[p.length - 1] += postParts.shift();
+        p.push.apply(p, postParts);
+    }
+    parts.push.apply(parts, p);
+    return parts;
+}
+function expand(str) {
+    if (!str) {
+        return [];
+    }
+    // I don't know why Bash 4.3 does this, but it does.
+    // Anything starting with {} will have the first two bytes preserved
+    // but *only* at the top level, so {},a}b will not expand to anything,
+    // but a{},b}c will be expanded to [a}c,abc].
+    // One could argue that this is a bug in Bash, but since the goal of
+    // this module is to match Bash's rules, we escape a leading {}
+    if (str.slice(0, 2) === '{}') {
+        str = '\\{\\}' + str.slice(2);
+    }
+    return expand_(escapeBraces(str), true).map(unescapeBraces);
+}
+function embrace(str) {
+    return '{' + str + '}';
+}
+function isPadded(el) {
+    return /^-?0\d/.test(el);
+}
+function lte(i, y) {
+    return i <= y;
+}
+function gte(i, y) {
+    return i >= y;
+}
+function expand_(str, isTop) {
+    /** @type {string[]} */
+    const expansions = [];
+    const m = balanced('{', '}', str);
+    if (!m)
+        return [str];
+    // no need to expand pre, since it is guaranteed to be free of brace-sets
+    const pre = m.pre;
+    const post = m.post.length ? expand_(m.post, false) : [''];
+    if (/\$$/.test(m.pre)) {
+        for (let k = 0; k < post.length; k++) {
+            const expansion = pre + '{' + m.body + '}' + post[k];
+            expansions.push(expansion);
+        }
+    }
+    else {
+        const isNumericSequence = /^-?\d+\.\.-?\d+(?:\.\.-?\d+)?$/.test(m.body);
+        const isAlphaSequence = /^[a-zA-Z]\.\.[a-zA-Z](?:\.\.-?\d+)?$/.test(m.body);
+        const isSequence = isNumericSequence || isAlphaSequence;
+        const isOptions = m.body.indexOf(',') >= 0;
+        if (!isSequence && !isOptions) {
+            // {a},b}
+            if (m.post.match(/,(?!,).*\}/)) {
+                str = m.pre + '{' + m.body + escClose + m.post;
+                return expand_(str);
+            }
+            return [str];
+        }
+        let n;
+        if (isSequence) {
+            n = m.body.split(/\.\./);
         }
         else {
-            const Scurry = opts.platform === 'win32' ? path_scurry_1.PathScurryWin32
-                : opts.platform === 'darwin' ? path_scurry_1.PathScurryDarwin
-                    : opts.platform ? path_scurry_1.PathScurryPosix
-                        : path_scurry_1.PathScurry;
-            this.scurry = new Scurry(this.cwd, {
-                nocase: opts.nocase,
-                fs: opts.fs,
-            });
-        }
-        this.nocase = this.scurry.nocase;
-        // If you do nocase:true on a case-sensitive file system, then
-        // we need to use regexps instead of strings for non-magic
-        // path portions, because statting `aBc` won't return results
-        // for the file `AbC` for example.
-        const nocaseMagicOnly = this.platform === 'darwin' || this.platform === 'win32';
-        const mmo = {
-            // default nocase based on platform
-            ...opts,
-            dot: this.dot,
-            matchBase: this.matchBase,
-            nobrace: this.nobrace,
-            nocase: this.nocase,
-            nocaseMagicOnly,
-            nocomment: true,
-            noext: this.noext,
-            nonegate: true,
-            optimizationLevel: 2,
-            platform: this.platform,
-            windowsPathsNoEscape: this.windowsPathsNoEscape,
-            debug: !!this.opts.debug,
-        };
-        const mms = this.pattern.map(p => new minimatch_1.Minimatch(p, mmo));
-        const [matchSet, globParts] = mms.reduce((set, m) => {
-            set[0].push(...m.set);
-            set[1].push(...m.globParts);
-            return set;
-        }, [[], []]);
-        this.patterns = matchSet.map((set, i) => {
-            const g = globParts[i];
-            /* c8 ignore start */
-            if (!g)
-                throw new Error('invalid pattern object');
-            /* c8 ignore stop */
-            return new pattern_js_1.Pattern(set, g, 0, this.platform);
-        });
-    }
-    async walk() {
-        // Walkers always return array of Path objects, so we just have to
-        // coerce them into the right shape.  It will have already called
-        // realpath() if the option was set to do so, so we know that's cached.
-        // start out knowing the cwd, at least
-        return [
-            ...(await new walker_js_1.GlobWalker(this.patterns, this.scurry.cwd, {
-                ...this.opts,
-                maxDepth: this.maxDepth !== Infinity ?
-                    this.maxDepth + this.scurry.cwd.depth()
-                    : Infinity,
-                platform: this.platform,
-                nocase: this.nocase,
-                includeChildMatches: this.includeChildMatches,
-            }).walk()),
-        ];
-    }
-    walkSync() {
-        return [
-            ...new walker_js_1.GlobWalker(this.patterns, this.scurry.cwd, {
-                ...this.opts,
-                maxDepth: this.maxDepth !== Infinity ?
-                    this.maxDepth + this.scurry.cwd.depth()
-                    : Infinity,
-                platform: this.platform,
-                nocase: this.nocase,
-                includeChildMatches: this.includeChildMatches,
-            }).walkSync(),
-        ];
-    }
-    stream() {
-        return new walker_js_1.GlobStream(this.patterns, this.scurry.cwd, {
-            ...this.opts,
-            maxDepth: this.maxDepth !== Infinity ?
-                this.maxDepth + this.scurry.cwd.depth()
-                : Infinity,
-            platform: this.platform,
-            nocase: this.nocase,
-            includeChildMatches: this.includeChildMatches,
-        }).stream();
-    }
-    streamSync() {
-        return new walker_js_1.GlobStream(this.patterns, this.scurry.cwd, {
-            ...this.opts,
-            maxDepth: this.maxDepth !== Infinity ?
-                this.maxDepth + this.scurry.cwd.depth()
-                : Infinity,
-            platform: this.platform,
-            nocase: this.nocase,
-            includeChildMatches: this.includeChildMatches,
-        }).streamSync();
-    }
-    /**
-     * Default sync iteration function. Returns a Generator that
-     * iterates over the results.
-     */
-    iterateSync() {
-        return this.streamSync()[Symbol.iterator]();
-    }
-    [Symbol.iterator]() {
-        return this.iterateSync();
-    }
-    /**
-     * Default async iteration function. Returns an AsyncGenerator that
-     * iterates over the results.
-     */
-    iterate() {
-        return this.stream()[Symbol.asyncIterator]();
-    }
-    [Symbol.asyncIterator]() {
-        return this.iterate();
-    }
-}
-exports.Glob = Glob;
-//# sourceMappingURL=glob.js.map
-
-/***/ }),
-
-/***/ 5197:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.hasMagic = void 0;
-const minimatch_1 = __nccwpck_require__(1409);
-/**
- * Return true if the patterns provided contain any magic glob characters,
- * given the options provided.
- *
- * Brace expansion is not considered "magic" unless the `magicalBraces` option
- * is set, as brace expansion just turns one string into an array of strings.
- * So a pattern like `'x{a,b}y'` would return `false`, because `'xay'` and
- * `'xby'` both do not contain any magic glob characters, and it's treated the
- * same as if you had called it on `['xay', 'xby']`. When `magicalBraces:true`
- * is in the options, brace expansion _is_ treated as a pattern having magic.
- */
-const hasMagic = (pattern, options = {}) => {
-    if (!Array.isArray(pattern)) {
-        pattern = [pattern];
-    }
-    for (const p of pattern) {
-        if (new minimatch_1.Minimatch(p, options).hasMagic())
-            return true;
-    }
-    return false;
-};
-exports.hasMagic = hasMagic;
-//# sourceMappingURL=has-magic.js.map
-
-/***/ }),
-
-/***/ 5637:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-// give it a pattern, and it'll be able to tell you if
-// a given path should be ignored.
-// Ignoring a path ignores its children if the pattern ends in /**
-// Ignores are always parsed in dot:true mode
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Ignore = void 0;
-const minimatch_1 = __nccwpck_require__(1409);
-const pattern_js_1 = __nccwpck_require__(7813);
-const defaultPlatform = (typeof process === 'object' &&
-    process &&
-    typeof process.platform === 'string') ?
-    process.platform
-    : 'linux';
-/**
- * Class used to process ignored patterns
- */
-class Ignore {
-    relative;
-    relativeChildren;
-    absolute;
-    absoluteChildren;
-    platform;
-    mmopts;
-    constructor(ignored, { nobrace, nocase, noext, noglobstar, platform = defaultPlatform, }) {
-        this.relative = [];
-        this.absolute = [];
-        this.relativeChildren = [];
-        this.absoluteChildren = [];
-        this.platform = platform;
-        this.mmopts = {
-            dot: true,
-            nobrace,
-            nocase,
-            noext,
-            noglobstar,
-            optimizationLevel: 2,
-            platform,
-            nocomment: true,
-            nonegate: true,
-        };
-        for (const ign of ignored)
-            this.add(ign);
-    }
-    add(ign) {
-        // this is a little weird, but it gives us a clean set of optimized
-        // minimatch matchers, without getting tripped up if one of them
-        // ends in /** inside a brace section, and it's only inefficient at
-        // the start of the walk, not along it.
-        // It'd be nice if the Pattern class just had a .test() method, but
-        // handling globstars is a bit of a pita, and that code already lives
-        // in minimatch anyway.
-        // Another way would be if maybe Minimatch could take its set/globParts
-        // as an option, and then we could at least just use Pattern to test
-        // for absolute-ness.
-        // Yet another way, Minimatch could take an array of glob strings, and
-        // a cwd option, and do the right thing.
-        const mm = new minimatch_1.Minimatch(ign, this.mmopts);
-        for (let i = 0; i < mm.set.length; i++) {
-            const parsed = mm.set[i];
-            const globParts = mm.globParts[i];
-            /* c8 ignore start */
-            if (!parsed || !globParts) {
-                throw new Error('invalid pattern object');
-            }
-            // strip off leading ./ portions
-            // https://github.com/isaacs/node-glob/issues/570
-            while (parsed[0] === '.' && globParts[0] === '.') {
-                parsed.shift();
-                globParts.shift();
-            }
-            /* c8 ignore stop */
-            const p = new pattern_js_1.Pattern(parsed, globParts, 0, this.platform);
-            const m = new minimatch_1.Minimatch(p.globString(), this.mmopts);
-            const children = globParts[globParts.length - 1] === '**';
-            const absolute = p.isAbsolute();
-            if (absolute)
-                this.absolute.push(m);
-            else
-                this.relative.push(m);
-            if (children) {
-                if (absolute)
-                    this.absoluteChildren.push(m);
-                else
-                    this.relativeChildren.push(m);
-            }
-        }
-    }
-    ignored(p) {
-        const fullpath = p.fullpath();
-        const fullpaths = `${fullpath}/`;
-        const relative = p.relative() || '.';
-        const relatives = `${relative}/`;
-        for (const m of this.relative) {
-            if (m.match(relative) || m.match(relatives))
-                return true;
-        }
-        for (const m of this.absolute) {
-            if (m.match(fullpath) || m.match(fullpaths))
-                return true;
-        }
-        return false;
-    }
-    childrenIgnored(p) {
-        const fullpath = p.fullpath() + '/';
-        const relative = (p.relative() || '.') + '/';
-        for (const m of this.relativeChildren) {
-            if (m.match(relative))
-                return true;
-        }
-        for (const m of this.absoluteChildren) {
-            if (m.match(fullpath))
-                return true;
-        }
-        return false;
-    }
-}
-exports.Ignore = Ignore;
-//# sourceMappingURL=ignore.js.map
-
-/***/ }),
-
-/***/ 1363:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.glob = exports.sync = exports.iterate = exports.iterateSync = exports.stream = exports.streamSync = exports.Ignore = exports.hasMagic = exports.Glob = exports.unescape = exports.escape = void 0;
-exports.globStreamSync = globStreamSync;
-exports.globStream = globStream;
-exports.globSync = globSync;
-exports.globIterateSync = globIterateSync;
-exports.globIterate = globIterate;
-const minimatch_1 = __nccwpck_require__(1409);
-const glob_js_1 = __nccwpck_require__(2981);
-const has_magic_js_1 = __nccwpck_require__(5197);
-var minimatch_2 = __nccwpck_require__(1409);
-Object.defineProperty(exports, "escape", ({ enumerable: true, get: function () { return minimatch_2.escape; } }));
-Object.defineProperty(exports, "unescape", ({ enumerable: true, get: function () { return minimatch_2.unescape; } }));
-var glob_js_2 = __nccwpck_require__(2981);
-Object.defineProperty(exports, "Glob", ({ enumerable: true, get: function () { return glob_js_2.Glob; } }));
-var has_magic_js_2 = __nccwpck_require__(5197);
-Object.defineProperty(exports, "hasMagic", ({ enumerable: true, get: function () { return has_magic_js_2.hasMagic; } }));
-var ignore_js_1 = __nccwpck_require__(5637);
-Object.defineProperty(exports, "Ignore", ({ enumerable: true, get: function () { return ignore_js_1.Ignore; } }));
-function globStreamSync(pattern, options = {}) {
-    return new glob_js_1.Glob(pattern, options).streamSync();
-}
-function globStream(pattern, options = {}) {
-    return new glob_js_1.Glob(pattern, options).stream();
-}
-function globSync(pattern, options = {}) {
-    return new glob_js_1.Glob(pattern, options).walkSync();
-}
-async function glob_(pattern, options = {}) {
-    return new glob_js_1.Glob(pattern, options).walk();
-}
-function globIterateSync(pattern, options = {}) {
-    return new glob_js_1.Glob(pattern, options).iterateSync();
-}
-function globIterate(pattern, options = {}) {
-    return new glob_js_1.Glob(pattern, options).iterate();
-}
-// aliases: glob.sync.stream() glob.stream.sync() glob.sync() etc
-exports.streamSync = globStreamSync;
-exports.stream = Object.assign(globStream, { sync: globStreamSync });
-exports.iterateSync = globIterateSync;
-exports.iterate = Object.assign(globIterate, {
-    sync: globIterateSync,
-});
-exports.sync = Object.assign(globSync, {
-    stream: globStreamSync,
-    iterate: globIterateSync,
-});
-exports.glob = Object.assign(glob_, {
-    glob: glob_,
-    globSync,
-    sync: exports.sync,
-    globStream,
-    stream: exports.stream,
-    globStreamSync,
-    streamSync: exports.streamSync,
-    globIterate,
-    iterate: exports.iterate,
-    globIterateSync,
-    iterateSync: exports.iterateSync,
-    Glob: glob_js_1.Glob,
-    hasMagic: has_magic_js_1.hasMagic,
-    escape: minimatch_1.escape,
-    unescape: minimatch_1.unescape,
-});
-exports.glob.glob = exports.glob;
-//# sourceMappingURL=index.js.map
-
-/***/ }),
-
-/***/ 7813:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-// this is just a very light wrapper around 2 arrays with an offset index
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Pattern = void 0;
-const minimatch_1 = __nccwpck_require__(1409);
-const isPatternList = (pl) => pl.length >= 1;
-const isGlobList = (gl) => gl.length >= 1;
-/**
- * An immutable-ish view on an array of glob parts and their parsed
- * results
- */
-class Pattern {
-    #patternList;
-    #globList;
-    #index;
-    length;
-    #platform;
-    #rest;
-    #globString;
-    #isDrive;
-    #isUNC;
-    #isAbsolute;
-    #followGlobstar = true;
-    constructor(patternList, globList, index, platform) {
-        if (!isPatternList(patternList)) {
-            throw new TypeError('empty pattern list');
-        }
-        if (!isGlobList(globList)) {
-            throw new TypeError('empty glob list');
-        }
-        if (globList.length !== patternList.length) {
-            throw new TypeError('mismatched pattern list and glob list lengths');
-        }
-        this.length = patternList.length;
-        if (index < 0 || index >= this.length) {
-            throw new TypeError('index out of range');
-        }
-        this.#patternList = patternList;
-        this.#globList = globList;
-        this.#index = index;
-        this.#platform = platform;
-        // normalize root entries of absolute patterns on initial creation.
-        if (this.#index === 0) {
-            // c: => ['c:/']
-            // C:/ => ['C:/']
-            // C:/x => ['C:/', 'x']
-            // //host/share => ['//host/share/']
-            // //host/share/ => ['//host/share/']
-            // //host/share/x => ['//host/share/', 'x']
-            // /etc => ['/', 'etc']
-            // / => ['/']
-            if (this.isUNC()) {
-                // '' / '' / 'host' / 'share'
-                const [p0, p1, p2, p3, ...prest] = this.#patternList;
-                const [g0, g1, g2, g3, ...grest] = this.#globList;
-                if (prest[0] === '') {
-                    // ends in /
-                    prest.shift();
-                    grest.shift();
+            n = parseCommaParts(m.body);
+            if (n.length === 1 && n[0] !== undefined) {
+                // x{{a,b}}y ==> x{a}y x{b}y
+                n = expand_(n[0], false).map(embrace);
+                //XXX is this necessary? Can't seem to hit it in tests.
+                /* c8 ignore start */
+                if (n.length === 1) {
+                    return post.map(p => m.pre + n[0] + p);
                 }
-                const p = [p0, p1, p2, p3, ''].join('/');
-                const g = [g0, g1, g2, g3, ''].join('/');
-                this.#patternList = [p, ...prest];
-                this.#globList = [g, ...grest];
-                this.length = this.#patternList.length;
-            }
-            else if (this.isDrive() || this.isAbsolute()) {
-                const [p1, ...prest] = this.#patternList;
-                const [g1, ...grest] = this.#globList;
-                if (prest[0] === '') {
-                    // ends in /
-                    prest.shift();
-                    grest.shift();
-                }
-                const p = p1 + '/';
-                const g = g1 + '/';
-                this.#patternList = [p, ...prest];
-                this.#globList = [g, ...grest];
-                this.length = this.#patternList.length;
+                /* c8 ignore stop */
             }
         }
-    }
-    /**
-     * The first entry in the parsed list of patterns
-     */
-    pattern() {
-        return this.#patternList[this.#index];
-    }
-    /**
-     * true of if pattern() returns a string
-     */
-    isString() {
-        return typeof this.#patternList[this.#index] === 'string';
-    }
-    /**
-     * true of if pattern() returns GLOBSTAR
-     */
-    isGlobstar() {
-        return this.#patternList[this.#index] === minimatch_1.GLOBSTAR;
-    }
-    /**
-     * true if pattern() returns a regexp
-     */
-    isRegExp() {
-        return this.#patternList[this.#index] instanceof RegExp;
-    }
-    /**
-     * The /-joined set of glob parts that make up this pattern
-     */
-    globString() {
-        return (this.#globString =
-            this.#globString ||
-                (this.#index === 0 ?
-                    this.isAbsolute() ?
-                        this.#globList[0] + this.#globList.slice(1).join('/')
-                        : this.#globList.join('/')
-                    : this.#globList.slice(this.#index).join('/')));
-    }
-    /**
-     * true if there are more pattern parts after this one
-     */
-    hasMore() {
-        return this.length > this.#index + 1;
-    }
-    /**
-     * The rest of the pattern after this part, or null if this is the end
-     */
-    rest() {
-        if (this.#rest !== undefined)
-            return this.#rest;
-        if (!this.hasMore())
-            return (this.#rest = null);
-        this.#rest = new Pattern(this.#patternList, this.#globList, this.#index + 1, this.#platform);
-        this.#rest.#isAbsolute = this.#isAbsolute;
-        this.#rest.#isUNC = this.#isUNC;
-        this.#rest.#isDrive = this.#isDrive;
-        return this.#rest;
-    }
-    /**
-     * true if the pattern represents a //unc/path/ on windows
-     */
-    isUNC() {
-        const pl = this.#patternList;
-        return this.#isUNC !== undefined ?
-            this.#isUNC
-            : (this.#isUNC =
-                this.#platform === 'win32' &&
-                    this.#index === 0 &&
-                    pl[0] === '' &&
-                    pl[1] === '' &&
-                    typeof pl[2] === 'string' &&
-                    !!pl[2] &&
-                    typeof pl[3] === 'string' &&
-                    !!pl[3]);
-    }
-    // pattern like C:/...
-    // split = ['C:', ...]
-    // XXX: would be nice to handle patterns like `c:*` to test the cwd
-    // in c: for *, but I don't know of a way to even figure out what that
-    // cwd is without actually chdir'ing into it?
-    /**
-     * True if the pattern starts with a drive letter on Windows
-     */
-    isDrive() {
-        const pl = this.#patternList;
-        return this.#isDrive !== undefined ?
-            this.#isDrive
-            : (this.#isDrive =
-                this.#platform === 'win32' &&
-                    this.#index === 0 &&
-                    this.length > 1 &&
-                    typeof pl[0] === 'string' &&
-                    /^[a-z]:$/i.test(pl[0]));
-    }
-    // pattern = '/' or '/...' or '/x/...'
-    // split = ['', ''] or ['', ...] or ['', 'x', ...]
-    // Drive and UNC both considered absolute on windows
-    /**
-     * True if the pattern is rooted on an absolute path
-     */
-    isAbsolute() {
-        const pl = this.#patternList;
-        return this.#isAbsolute !== undefined ?
-            this.#isAbsolute
-            : (this.#isAbsolute =
-                (pl[0] === '' && pl.length > 1) ||
-                    this.isDrive() ||
-                    this.isUNC());
-    }
-    /**
-     * consume the root of the pattern, and return it
-     */
-    root() {
-        const p = this.#patternList[0];
-        return (typeof p === 'string' && this.isAbsolute() && this.#index === 0) ?
-            p
-            : '';
-    }
-    /**
-     * Check to see if the current globstar pattern is allowed to follow
-     * a symbolic link.
-     */
-    checkFollowGlobstar() {
-        return !(this.#index === 0 ||
-            !this.isGlobstar() ||
-            !this.#followGlobstar);
-    }
-    /**
-     * Mark that the current globstar pattern is following a symbolic link
-     */
-    markFollowGlobstar() {
-        if (this.#index === 0 || !this.isGlobstar() || !this.#followGlobstar)
-            return false;
-        this.#followGlobstar = false;
-        return true;
-    }
-}
-exports.Pattern = Pattern;
-//# sourceMappingURL=pattern.js.map
-
-/***/ }),
-
-/***/ 7843:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-// synchronous utility for filtering entries and calculating subwalks
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Processor = exports.SubWalks = exports.MatchRecord = exports.HasWalkedCache = void 0;
-const minimatch_1 = __nccwpck_require__(1409);
-/**
- * A cache of which patterns have been processed for a given Path
- */
-class HasWalkedCache {
-    store;
-    constructor(store = new Map()) {
-        this.store = store;
-    }
-    copy() {
-        return new HasWalkedCache(new Map(this.store));
-    }
-    hasWalked(target, pattern) {
-        return this.store.get(target.fullpath())?.has(pattern.globString());
-    }
-    storeWalked(target, pattern) {
-        const fullpath = target.fullpath();
-        const cached = this.store.get(fullpath);
-        if (cached)
-            cached.add(pattern.globString());
-        else
-            this.store.set(fullpath, new Set([pattern.globString()]));
-    }
-}
-exports.HasWalkedCache = HasWalkedCache;
-/**
- * A record of which paths have been matched in a given walk step,
- * and whether they only are considered a match if they are a directory,
- * and whether their absolute or relative path should be returned.
- */
-class MatchRecord {
-    store = new Map();
-    add(target, absolute, ifDir) {
-        const n = (absolute ? 2 : 0) | (ifDir ? 1 : 0);
-        const current = this.store.get(target);
-        this.store.set(target, current === undefined ? n : n & current);
-    }
-    // match, absolute, ifdir
-    entries() {
-        return [...this.store.entries()].map(([path, n]) => [
-            path,
-            !!(n & 2),
-            !!(n & 1),
-        ]);
-    }
-}
-exports.MatchRecord = MatchRecord;
-/**
- * A collection of patterns that must be processed in a subsequent step
- * for a given path.
- */
-class SubWalks {
-    store = new Map();
-    add(target, pattern) {
-        if (!target.canReaddir()) {
-            return;
-        }
-        const subs = this.store.get(target);
-        if (subs) {
-            if (!subs.find(p => p.globString() === pattern.globString())) {
-                subs.push(pattern);
+        // at this point, n is the parts, and we know it's not a comma set
+        // with a single entry.
+        let N;
+        if (isSequence && n[0] !== undefined && n[1] !== undefined) {
+            const x = numeric(n[0]);
+            const y = numeric(n[1]);
+            const width = Math.max(n[0].length, n[1].length);
+            let incr = n.length === 3 && n[2] !== undefined ? Math.abs(numeric(n[2])) : 1;
+            let test = lte;
+            const reverse = y < x;
+            if (reverse) {
+                incr *= -1;
+                test = gte;
             }
-        }
-        else
-            this.store.set(target, [pattern]);
-    }
-    get(target) {
-        const subs = this.store.get(target);
-        /* c8 ignore start */
-        if (!subs) {
-            throw new Error('attempting to walk unknown path');
-        }
-        /* c8 ignore stop */
-        return subs;
-    }
-    entries() {
-        return this.keys().map(k => [k, this.store.get(k)]);
-    }
-    keys() {
-        return [...this.store.keys()].filter(t => t.canReaddir());
-    }
-}
-exports.SubWalks = SubWalks;
-/**
- * The class that processes patterns for a given path.
- *
- * Handles child entry filtering, and determining whether a path's
- * directory contents must be read.
- */
-class Processor {
-    hasWalkedCache;
-    matches = new MatchRecord();
-    subwalks = new SubWalks();
-    patterns;
-    follow;
-    dot;
-    opts;
-    constructor(opts, hasWalkedCache) {
-        this.opts = opts;
-        this.follow = !!opts.follow;
-        this.dot = !!opts.dot;
-        this.hasWalkedCache =
-            hasWalkedCache ? hasWalkedCache.copy() : new HasWalkedCache();
-    }
-    processPatterns(target, patterns) {
-        this.patterns = patterns;
-        const processingSet = patterns.map(p => [target, p]);
-        // map of paths to the magic-starting subwalks they need to walk
-        // first item in patterns is the filter
-        for (let [t, pattern] of processingSet) {
-            this.hasWalkedCache.storeWalked(t, pattern);
-            const root = pattern.root();
-            const absolute = pattern.isAbsolute() && this.opts.absolute !== false;
-            // start absolute patterns at root
-            if (root) {
-                t = t.resolve(root === '/' && this.opts.root !== undefined ?
-                    this.opts.root
-                    : root);
-                const rest = pattern.rest();
-                if (!rest) {
-                    this.matches.add(t, true, false);
-                    continue;
+            const pad = n.some(isPadded);
+            N = [];
+            for (let i = x; test(i, y); i += incr) {
+                let c;
+                if (isAlphaSequence) {
+                    c = String.fromCharCode(i);
+                    if (c === '\\') {
+                        c = '';
+                    }
                 }
                 else {
-                    pattern = rest;
-                }
-            }
-            if (t.isENOENT())
-                continue;
-            let p;
-            let rest;
-            let changed = false;
-            while (typeof (p = pattern.pattern()) === 'string' &&
-                (rest = pattern.rest())) {
-                const c = t.resolve(p);
-                t = c;
-                pattern = rest;
-                changed = true;
-            }
-            p = pattern.pattern();
-            rest = pattern.rest();
-            if (changed) {
-                if (this.hasWalkedCache.hasWalked(t, pattern))
-                    continue;
-                this.hasWalkedCache.storeWalked(t, pattern);
-            }
-            // now we have either a final string for a known entry,
-            // more strings for an unknown entry,
-            // or a pattern starting with magic, mounted on t.
-            if (typeof p === 'string') {
-                // must not be final entry, otherwise we would have
-                // concatenated it earlier.
-                const ifDir = p === '..' || p === '' || p === '.';
-                this.matches.add(t.resolve(p), absolute, ifDir);
-                continue;
-            }
-            else if (p === minimatch_1.GLOBSTAR) {
-                // if no rest, match and subwalk pattern
-                // if rest, process rest and subwalk pattern
-                // if it's a symlink, but we didn't get here by way of a
-                // globstar match (meaning it's the first time THIS globstar
-                // has traversed a symlink), then we follow it. Otherwise, stop.
-                if (!t.isSymbolicLink() ||
-                    this.follow ||
-                    pattern.checkFollowGlobstar()) {
-                    this.subwalks.add(t, pattern);
-                }
-                const rp = rest?.pattern();
-                const rrest = rest?.rest();
-                if (!rest || ((rp === '' || rp === '.') && !rrest)) {
-                    // only HAS to be a dir if it ends in **/ or **/.
-                    // but ending in ** will match files as well.
-                    this.matches.add(t, absolute, rp === '' || rp === '.');
-                }
-                else {
-                    if (rp === '..') {
-                        // this would mean you're matching **/.. at the fs root,
-                        // and no thanks, I'm not gonna test that specific case.
-                        /* c8 ignore start */
-                        const tp = t.parent || t;
-                        /* c8 ignore stop */
-                        if (!rrest)
-                            this.matches.add(tp, absolute, true);
-                        else if (!this.hasWalkedCache.hasWalked(tp, rrest)) {
-                            this.subwalks.add(tp, rrest);
+                    c = String(i);
+                    if (pad) {
+                        const need = width - c.length;
+                        if (need > 0) {
+                            const z = new Array(need + 1).join('0');
+                            if (i < 0) {
+                                c = '-' + z + c.slice(1);
+                            }
+                            else {
+                                c = z + c;
+                            }
                         }
                     }
                 }
+                N.push(c);
             }
-            else if (p instanceof RegExp) {
-                this.subwalks.add(t, pattern);
-            }
-        }
-        return this;
-    }
-    subwalkTargets() {
-        return this.subwalks.keys();
-    }
-    child() {
-        return new Processor(this.opts, this.hasWalkedCache);
-    }
-    // return a new Processor containing the subwalks for each
-    // child entry, and a set of matches, and
-    // a hasWalkedCache that's a copy of this one
-    // then we're going to call
-    filterEntries(parent, entries) {
-        const patterns = this.subwalks.get(parent);
-        // put matches and entry walks into the results processor
-        const results = this.child();
-        for (const e of entries) {
-            for (const pattern of patterns) {
-                const absolute = pattern.isAbsolute();
-                const p = pattern.pattern();
-                const rest = pattern.rest();
-                if (p === minimatch_1.GLOBSTAR) {
-                    results.testGlobstar(e, pattern, rest, absolute);
-                }
-                else if (p instanceof RegExp) {
-                    results.testRegExp(e, p, rest, absolute);
-                }
-                else {
-                    results.testString(e, p, rest, absolute);
-                }
-            }
-        }
-        return results;
-    }
-    testGlobstar(e, pattern, rest, absolute) {
-        if (this.dot || !e.name.startsWith('.')) {
-            if (!pattern.hasMore()) {
-                this.matches.add(e, absolute, false);
-            }
-            if (e.canReaddir()) {
-                // if we're in follow mode or it's not a symlink, just keep
-                // testing the same pattern. If there's more after the globstar,
-                // then this symlink consumes the globstar. If not, then we can
-                // follow at most ONE symlink along the way, so we mark it, which
-                // also checks to ensure that it wasn't already marked.
-                if (this.follow || !e.isSymbolicLink()) {
-                    this.subwalks.add(e, pattern);
-                }
-                else if (e.isSymbolicLink()) {
-                    if (rest && pattern.checkFollowGlobstar()) {
-                        this.subwalks.add(e, rest);
-                    }
-                    else if (pattern.markFollowGlobstar()) {
-                        this.subwalks.add(e, pattern);
-                    }
-                }
-            }
-        }
-        // if the NEXT thing matches this entry, then also add
-        // the rest.
-        if (rest) {
-            const rp = rest.pattern();
-            if (typeof rp === 'string' &&
-                // dots and empty were handled already
-                rp !== '..' &&
-                rp !== '' &&
-                rp !== '.') {
-                this.testString(e, rp, rest.rest(), absolute);
-            }
-            else if (rp === '..') {
-                /* c8 ignore start */
-                const ep = e.parent || e;
-                /* c8 ignore stop */
-                this.subwalks.add(ep, rest);
-            }
-            else if (rp instanceof RegExp) {
-                this.testRegExp(e, rp, rest.rest(), absolute);
-            }
-        }
-    }
-    testRegExp(e, p, rest, absolute) {
-        if (!p.test(e.name))
-            return;
-        if (!rest) {
-            this.matches.add(e, absolute, false);
         }
         else {
-            this.subwalks.add(e, rest);
+            N = [];
+            for (let j = 0; j < n.length; j++) {
+                N.push.apply(N, expand_(n[j], false));
+            }
+        }
+        for (let j = 0; j < N.length; j++) {
+            for (let k = 0; k < post.length; k++) {
+                const expansion = pre + N[j] + post[k];
+                if (!isTop || isSequence || expansion) {
+                    expansions.push(expansion);
+                }
+            }
         }
     }
-    testString(e, p, rest, absolute) {
-        // should never happen?
-        if (!e.isNamed(p))
-            return;
-        if (!rest) {
-            this.matches.add(e, absolute, false);
-        }
-        else {
-            this.subwalks.add(e, rest);
-        }
-    }
+    return expansions;
 }
-exports.Processor = Processor;
-//# sourceMappingURL=processor.js.map
-
-/***/ }),
-
-/***/ 1157:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.GlobStream = exports.GlobWalker = exports.GlobUtil = void 0;
-/**
- * Single-use utility classes to provide functionality to the {@link Glob}
- * methods.
- *
- * @module
- */
-const minipass_1 = __nccwpck_require__(8275);
-const ignore_js_1 = __nccwpck_require__(5637);
-const processor_js_1 = __nccwpck_require__(7843);
-const makeIgnore = (ignore, opts) => typeof ignore === 'string' ? new ignore_js_1.Ignore([ignore], opts)
-    : Array.isArray(ignore) ? new ignore_js_1.Ignore(ignore, opts)
-        : ignore;
-/**
- * basic walking utilities that all the glob walker types use
- */
-class GlobUtil {
-    path;
-    patterns;
-    opts;
-    seen = new Set();
-    paused = false;
-    aborted = false;
-    #onResume = [];
-    #ignore;
-    #sep;
-    signal;
-    maxDepth;
-    includeChildMatches;
-    constructor(patterns, path, opts) {
-        this.patterns = patterns;
-        this.path = path;
-        this.opts = opts;
-        this.#sep = !opts.posix && opts.platform === 'win32' ? '\\' : '/';
-        this.includeChildMatches = opts.includeChildMatches !== false;
-        if (opts.ignore || !this.includeChildMatches) {
-            this.#ignore = makeIgnore(opts.ignore ?? [], opts);
-            if (!this.includeChildMatches &&
-                typeof this.#ignore.add !== 'function') {
-                const m = 'cannot ignore child matches, ignore lacks add() method.';
-                throw new Error(m);
-            }
-        }
-        // ignore, always set with maxDepth, but it's optional on the
-        // GlobOptions type
-        /* c8 ignore start */
-        this.maxDepth = opts.maxDepth || Infinity;
-        /* c8 ignore stop */
-        if (opts.signal) {
-            this.signal = opts.signal;
-            this.signal.addEventListener('abort', () => {
-                this.#onResume.length = 0;
-            });
-        }
-    }
-    #ignored(path) {
-        return this.seen.has(path) || !!this.#ignore?.ignored?.(path);
-    }
-    #childrenIgnored(path) {
-        return !!this.#ignore?.childrenIgnored?.(path);
-    }
-    // backpressure mechanism
-    pause() {
-        this.paused = true;
-    }
-    resume() {
-        /* c8 ignore start */
-        if (this.signal?.aborted)
-            return;
-        /* c8 ignore stop */
-        this.paused = false;
-        let fn = undefined;
-        while (!this.paused && (fn = this.#onResume.shift())) {
-            fn();
-        }
-    }
-    onResume(fn) {
-        if (this.signal?.aborted)
-            return;
-        /* c8 ignore start */
-        if (!this.paused) {
-            fn();
-        }
-        else {
-            /* c8 ignore stop */
-            this.#onResume.push(fn);
-        }
-    }
-    // do the requisite realpath/stat checking, and return the path
-    // to add or undefined to filter it out.
-    async matchCheck(e, ifDir) {
-        if (ifDir && this.opts.nodir)
-            return undefined;
-        let rpc;
-        if (this.opts.realpath) {
-            rpc = e.realpathCached() || (await e.realpath());
-            if (!rpc)
-                return undefined;
-            e = rpc;
-        }
-        const needStat = e.isUnknown() || this.opts.stat;
-        const s = needStat ? await e.lstat() : e;
-        if (this.opts.follow && this.opts.nodir && s?.isSymbolicLink()) {
-            const target = await s.realpath();
-            /* c8 ignore start */
-            if (target && (target.isUnknown() || this.opts.stat)) {
-                await target.lstat();
-            }
-            /* c8 ignore stop */
-        }
-        return this.matchCheckTest(s, ifDir);
-    }
-    matchCheckTest(e, ifDir) {
-        return (e &&
-            (this.maxDepth === Infinity || e.depth() <= this.maxDepth) &&
-            (!ifDir || e.canReaddir()) &&
-            (!this.opts.nodir || !e.isDirectory()) &&
-            (!this.opts.nodir ||
-                !this.opts.follow ||
-                !e.isSymbolicLink() ||
-                !e.realpathCached()?.isDirectory()) &&
-            !this.#ignored(e)) ?
-            e
-            : undefined;
-    }
-    matchCheckSync(e, ifDir) {
-        if (ifDir && this.opts.nodir)
-            return undefined;
-        let rpc;
-        if (this.opts.realpath) {
-            rpc = e.realpathCached() || e.realpathSync();
-            if (!rpc)
-                return undefined;
-            e = rpc;
-        }
-        const needStat = e.isUnknown() || this.opts.stat;
-        const s = needStat ? e.lstatSync() : e;
-        if (this.opts.follow && this.opts.nodir && s?.isSymbolicLink()) {
-            const target = s.realpathSync();
-            if (target && (target?.isUnknown() || this.opts.stat)) {
-                target.lstatSync();
-            }
-        }
-        return this.matchCheckTest(s, ifDir);
-    }
-    matchFinish(e, absolute) {
-        if (this.#ignored(e))
-            return;
-        // we know we have an ignore if this is false, but TS doesn't
-        if (!this.includeChildMatches && this.#ignore?.add) {
-            const ign = `${e.relativePosix()}/**`;
-            this.#ignore.add(ign);
-        }
-        const abs = this.opts.absolute === undefined ? absolute : this.opts.absolute;
-        this.seen.add(e);
-        const mark = this.opts.mark && e.isDirectory() ? this.#sep : '';
-        // ok, we have what we need!
-        if (this.opts.withFileTypes) {
-            this.matchEmit(e);
-        }
-        else if (abs) {
-            const abs = this.opts.posix ? e.fullpathPosix() : e.fullpath();
-            this.matchEmit(abs + mark);
-        }
-        else {
-            const rel = this.opts.posix ? e.relativePosix() : e.relative();
-            const pre = this.opts.dotRelative && !rel.startsWith('..' + this.#sep) ?
-                '.' + this.#sep
-                : '';
-            this.matchEmit(!rel ? '.' + mark : pre + rel + mark);
-        }
-    }
-    async match(e, absolute, ifDir) {
-        const p = await this.matchCheck(e, ifDir);
-        if (p)
-            this.matchFinish(p, absolute);
-    }
-    matchSync(e, absolute, ifDir) {
-        const p = this.matchCheckSync(e, ifDir);
-        if (p)
-            this.matchFinish(p, absolute);
-    }
-    walkCB(target, patterns, cb) {
-        /* c8 ignore start */
-        if (this.signal?.aborted)
-            cb();
-        /* c8 ignore stop */
-        this.walkCB2(target, patterns, new processor_js_1.Processor(this.opts), cb);
-    }
-    walkCB2(target, patterns, processor, cb) {
-        if (this.#childrenIgnored(target))
-            return cb();
-        if (this.signal?.aborted)
-            cb();
-        if (this.paused) {
-            this.onResume(() => this.walkCB2(target, patterns, processor, cb));
-            return;
-        }
-        processor.processPatterns(target, patterns);
-        // done processing.  all of the above is sync, can be abstracted out.
-        // subwalks is a map of paths to the entry filters they need
-        // matches is a map of paths to [absolute, ifDir] tuples.
-        let tasks = 1;
-        const next = () => {
-            if (--tasks === 0)
-                cb();
-        };
-        for (const [m, absolute, ifDir] of processor.matches.entries()) {
-            if (this.#ignored(m))
-                continue;
-            tasks++;
-            this.match(m, absolute, ifDir).then(() => next());
-        }
-        for (const t of processor.subwalkTargets()) {
-            if (this.maxDepth !== Infinity && t.depth() >= this.maxDepth) {
-                continue;
-            }
-            tasks++;
-            const childrenCached = t.readdirCached();
-            if (t.calledReaddir())
-                this.walkCB3(t, childrenCached, processor, next);
-            else {
-                t.readdirCB((_, entries) => this.walkCB3(t, entries, processor, next), true);
-            }
-        }
-        next();
-    }
-    walkCB3(target, entries, processor, cb) {
-        processor = processor.filterEntries(target, entries);
-        let tasks = 1;
-        const next = () => {
-            if (--tasks === 0)
-                cb();
-        };
-        for (const [m, absolute, ifDir] of processor.matches.entries()) {
-            if (this.#ignored(m))
-                continue;
-            tasks++;
-            this.match(m, absolute, ifDir).then(() => next());
-        }
-        for (const [target, patterns] of processor.subwalks.entries()) {
-            tasks++;
-            this.walkCB2(target, patterns, processor.child(), next);
-        }
-        next();
-    }
-    walkCBSync(target, patterns, cb) {
-        /* c8 ignore start */
-        if (this.signal?.aborted)
-            cb();
-        /* c8 ignore stop */
-        this.walkCB2Sync(target, patterns, new processor_js_1.Processor(this.opts), cb);
-    }
-    walkCB2Sync(target, patterns, processor, cb) {
-        if (this.#childrenIgnored(target))
-            return cb();
-        if (this.signal?.aborted)
-            cb();
-        if (this.paused) {
-            this.onResume(() => this.walkCB2Sync(target, patterns, processor, cb));
-            return;
-        }
-        processor.processPatterns(target, patterns);
-        // done processing.  all of the above is sync, can be abstracted out.
-        // subwalks is a map of paths to the entry filters they need
-        // matches is a map of paths to [absolute, ifDir] tuples.
-        let tasks = 1;
-        const next = () => {
-            if (--tasks === 0)
-                cb();
-        };
-        for (const [m, absolute, ifDir] of processor.matches.entries()) {
-            if (this.#ignored(m))
-                continue;
-            this.matchSync(m, absolute, ifDir);
-        }
-        for (const t of processor.subwalkTargets()) {
-            if (this.maxDepth !== Infinity && t.depth() >= this.maxDepth) {
-                continue;
-            }
-            tasks++;
-            const children = t.readdirSync();
-            this.walkCB3Sync(t, children, processor, next);
-        }
-        next();
-    }
-    walkCB3Sync(target, entries, processor, cb) {
-        processor = processor.filterEntries(target, entries);
-        let tasks = 1;
-        const next = () => {
-            if (--tasks === 0)
-                cb();
-        };
-        for (const [m, absolute, ifDir] of processor.matches.entries()) {
-            if (this.#ignored(m))
-                continue;
-            this.matchSync(m, absolute, ifDir);
-        }
-        for (const [target, patterns] of processor.subwalks.entries()) {
-            tasks++;
-            this.walkCB2Sync(target, patterns, processor.child(), next);
-        }
-        next();
-    }
-}
-exports.GlobUtil = GlobUtil;
-class GlobWalker extends GlobUtil {
-    matches = new Set();
-    constructor(patterns, path, opts) {
-        super(patterns, path, opts);
-    }
-    matchEmit(e) {
-        this.matches.add(e);
-    }
-    async walk() {
-        if (this.signal?.aborted)
-            throw this.signal.reason;
-        if (this.path.isUnknown()) {
-            await this.path.lstat();
-        }
-        await new Promise((res, rej) => {
-            this.walkCB(this.path, this.patterns, () => {
-                if (this.signal?.aborted) {
-                    rej(this.signal.reason);
-                }
-                else {
-                    res(this.matches);
-                }
-            });
-        });
-        return this.matches;
-    }
-    walkSync() {
-        if (this.signal?.aborted)
-            throw this.signal.reason;
-        if (this.path.isUnknown()) {
-            this.path.lstatSync();
-        }
-        // nothing for the callback to do, because this never pauses
-        this.walkCBSync(this.path, this.patterns, () => {
-            if (this.signal?.aborted)
-                throw this.signal.reason;
-        });
-        return this.matches;
-    }
-}
-exports.GlobWalker = GlobWalker;
-class GlobStream extends GlobUtil {
-    results;
-    constructor(patterns, path, opts) {
-        super(patterns, path, opts);
-        this.results = new minipass_1.Minipass({
-            signal: this.signal,
-            objectMode: true,
-        });
-        this.results.on('drain', () => this.resume());
-        this.results.on('resume', () => this.resume());
-    }
-    matchEmit(e) {
-        this.results.write(e);
-        if (!this.results.flowing)
-            this.pause();
-    }
-    stream() {
-        const target = this.path;
-        if (target.isUnknown()) {
-            target.lstat().then(() => {
-                this.walkCB(target, this.patterns, () => this.results.end());
-            });
-        }
-        else {
-            this.walkCB(target, this.patterns, () => this.results.end());
-        }
-        return this.results;
-    }
-    streamSync() {
-        if (this.path.isUnknown()) {
-            this.path.lstatSync();
-        }
-        this.walkCBSync(this.path, this.patterns, () => this.results.end());
-        return this.results;
-    }
-}
-exports.GlobStream = GlobStream;
-//# sourceMappingURL=walker.js.map
-
-/***/ }),
-
-/***/ 8895:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.assertValidPattern = void 0;
+//# sourceMappingURL=index.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/node_modules/minimatch/dist/esm/assert-valid-pattern.js
 const MAX_PATTERN_LENGTH = 1024 * 64;
 const assertValidPattern = (pattern) => {
     if (typeof pattern !== 'string') {
@@ -31677,21 +29663,181 @@ const assertValidPattern = (pattern) => {
         throw new TypeError('pattern is too long');
     }
 };
-exports.assertValidPattern = assertValidPattern;
 //# sourceMappingURL=assert-valid-pattern.js.map
-
-/***/ }),
-
-/***/ 3238:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-"use strict";
-
+;// CONCATENATED MODULE: ./node_modules/glob/node_modules/minimatch/dist/esm/brace-expressions.js
+// translate the various posix character classes into unicode properties
+// this works across all unicode locales
+// { <posix class>: [<translation>, /u flag required, negated]
+const posixClasses = {
+    '[:alnum:]': ['\\p{L}\\p{Nl}\\p{Nd}', true],
+    '[:alpha:]': ['\\p{L}\\p{Nl}', true],
+    '[:ascii:]': ['\\x' + '00-\\x' + '7f', false],
+    '[:blank:]': ['\\p{Zs}\\t', true],
+    '[:cntrl:]': ['\\p{Cc}', true],
+    '[:digit:]': ['\\p{Nd}', true],
+    '[:graph:]': ['\\p{Z}\\p{C}', true, true],
+    '[:lower:]': ['\\p{Ll}', true],
+    '[:print:]': ['\\p{C}', true],
+    '[:punct:]': ['\\p{P}', true],
+    '[:space:]': ['\\p{Z}\\t\\r\\n\\v\\f', true],
+    '[:upper:]': ['\\p{Lu}', true],
+    '[:word:]': ['\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}', true],
+    '[:xdigit:]': ['A-Fa-f0-9', false],
+};
+// only need to escape a few things inside of brace expressions
+// escapes: [ \ ] -
+const braceEscape = (s) => s.replace(/[[\]\\-]/g, '\\$&');
+// escape all regexp magic characters
+const regexpEscape = (s) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+// everything has already been escaped, we just have to join
+const rangesToString = (ranges) => ranges.join('');
+// takes a glob string at a posix brace expression, and returns
+// an equivalent regular expression source, and boolean indicating
+// whether the /u flag needs to be applied, and the number of chars
+// consumed to parse the character class.
+// This also removes out of order ranges, and returns ($.) if the
+// entire class just no good.
+const parseClass = (glob, position) => {
+    const pos = position;
+    /* c8 ignore start */
+    if (glob.charAt(pos) !== '[') {
+        throw new Error('not in a brace expression');
+    }
+    /* c8 ignore stop */
+    const ranges = [];
+    const negs = [];
+    let i = pos + 1;
+    let sawStart = false;
+    let uflag = false;
+    let escaping = false;
+    let negate = false;
+    let endPos = pos;
+    let rangeStart = '';
+    WHILE: while (i < glob.length) {
+        const c = glob.charAt(i);
+        if ((c === '!' || c === '^') && i === pos + 1) {
+            negate = true;
+            i++;
+            continue;
+        }
+        if (c === ']' && sawStart && !escaping) {
+            endPos = i + 1;
+            break;
+        }
+        sawStart = true;
+        if (c === '\\') {
+            if (!escaping) {
+                escaping = true;
+                i++;
+                continue;
+            }
+            // escaped \ char, fall through and treat like normal char
+        }
+        if (c === '[' && !escaping) {
+            // either a posix class, a collation equivalent, or just a [
+            for (const [cls, [unip, u, neg]] of Object.entries(posixClasses)) {
+                if (glob.startsWith(cls, i)) {
+                    // invalid, [a-[] is fine, but not [a-[:alpha]]
+                    if (rangeStart) {
+                        return ['$.', false, glob.length - pos, true];
+                    }
+                    i += cls.length;
+                    if (neg)
+                        negs.push(unip);
+                    else
+                        ranges.push(unip);
+                    uflag = uflag || u;
+                    continue WHILE;
+                }
+            }
+        }
+        // now it's just a normal character, effectively
+        escaping = false;
+        if (rangeStart) {
+            // throw this range away if it's not valid, but others
+            // can still match.
+            if (c > rangeStart) {
+                ranges.push(braceEscape(rangeStart) + '-' + braceEscape(c));
+            }
+            else if (c === rangeStart) {
+                ranges.push(braceEscape(c));
+            }
+            rangeStart = '';
+            i++;
+            continue;
+        }
+        // now might be the start of a range.
+        // can be either c-d or c-] or c<more...>] or c] at this point
+        if (glob.startsWith('-]', i + 1)) {
+            ranges.push(braceEscape(c + '-'));
+            i += 2;
+            continue;
+        }
+        if (glob.startsWith('-', i + 1)) {
+            rangeStart = c;
+            i += 2;
+            continue;
+        }
+        // not the start of a range, just a single character
+        ranges.push(braceEscape(c));
+        i++;
+    }
+    if (endPos < i) {
+        // didn't see the end of the class, not a valid class,
+        // but might still be valid as a literal match.
+        return ['', false, 0, false];
+    }
+    // if we got no ranges and no negates, then we have a range that
+    // cannot possibly match anything, and that poisons the whole glob
+    if (!ranges.length && !negs.length) {
+        return ['$.', false, glob.length - pos, true];
+    }
+    // if we got one positive range, and it's a single character, then that's
+    // not actually a magic pattern, it's just that one literal character.
+    // we should not treat that as "magic", we should just return the literal
+    // character. [_] is a perfectly valid way to escape glob magic chars.
+    if (negs.length === 0 &&
+        ranges.length === 1 &&
+        /^\\?.$/.test(ranges[0]) &&
+        !negate) {
+        const r = ranges[0].length === 2 ? ranges[0].slice(-1) : ranges[0];
+        return [regexpEscape(r), false, endPos - pos, false];
+    }
+    const sranges = '[' + (negate ? '^' : '') + rangesToString(ranges) + ']';
+    const snegs = '[' + (negate ? '' : '^') + rangesToString(negs) + ']';
+    const comb = ranges.length && negs.length
+        ? '(' + sranges + '|' + snegs + ')'
+        : ranges.length
+            ? sranges
+            : snegs;
+    return [comb, uflag, endPos - pos, true];
+};
+//# sourceMappingURL=brace-expressions.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/node_modules/minimatch/dist/esm/unescape.js
+/**
+ * Un-escape a string that has been escaped with {@link escape}.
+ *
+ * If the {@link windowsPathsNoEscape} option is used, then square-brace
+ * escapes are removed, but not backslash escapes.  For example, it will turn
+ * the string `'[*]'` into `*`, but it will not turn `'\\*'` into `'*'`,
+ * becuase `\` is a path separator in `windowsPathsNoEscape` mode.
+ *
+ * When `windowsPathsNoEscape` is not set, then both brace escapes and
+ * backslash escapes are removed.
+ *
+ * Slashes (and backslashes in `windowsPathsNoEscape` mode) cannot be escaped
+ * or unescaped.
+ */
+const unescape_unescape = (s, { windowsPathsNoEscape = false, } = {}) => {
+    return windowsPathsNoEscape
+        ? s.replace(/\[([^\/\\])\]/g, '$1')
+        : s.replace(/((?!\\).|^)\[([^\/\\])\]/g, '$1$2').replace(/\\([^\/])/g, '$1');
+};
+//# sourceMappingURL=unescape.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/node_modules/minimatch/dist/esm/ast.js
 // parse a single path portion
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.AST = void 0;
-const brace_expressions_js_1 = __nccwpck_require__(5192);
-const unescape_js_1 = __nccwpck_require__(9829);
+
+
 const types = new Set(['!', '?', '+', '*', '@']);
 const isExtglobType = (c) => types.has(c);
 // Patterns that get prepended to bind to the start of either the
@@ -32150,7 +30296,7 @@ class AST {
             const final = start + src + end;
             return [
                 final,
-                (0, unescape_js_1.unescape)(src),
+                unescape_unescape(src),
                 (this.#hasMagic = !!this.#hasMagic),
                 this.#uflag,
             ];
@@ -32169,7 +30315,7 @@ class AST {
             this.#parts = [s];
             this.type = null;
             this.#hasMagic = undefined;
-            return [s, (0, unescape_js_1.unescape)(this.toString()), false, false];
+            return [s, unescape_unescape(this.toString()), false, false];
         }
         // XXX abstract out this map method
         let bodyDotAllowed = !repeated || allowDot || dot || !startNoDot
@@ -32206,7 +30352,7 @@ class AST {
         }
         return [
             final,
-            (0, unescape_js_1.unescape)(body),
+            unescape_unescape(body),
             (this.#hasMagic = !!this.#hasMagic),
             this.#uflag,
         ];
@@ -32249,7 +30395,7 @@ class AST {
                 continue;
             }
             if (c === '[') {
-                const [src, needUflag, consumed, magic] = (0, brace_expressions_js_1.parseClass)(glob, i);
+                const [src, needUflag, consumed, magic] = parseClass(glob, i);
                 if (consumed) {
                     re += src;
                     uflag = uflag || needUflag;
@@ -32273,180 +30419,11 @@ class AST {
             }
             re += regExpEscape(c);
         }
-        return [re, (0, unescape_js_1.unescape)(glob), !!hasMagic, uflag];
+        return [re, unescape_unescape(glob), !!hasMagic, uflag];
     }
 }
-exports.AST = AST;
 //# sourceMappingURL=ast.js.map
-
-/***/ }),
-
-/***/ 5192:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-// translate the various posix character classes into unicode properties
-// this works across all unicode locales
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.parseClass = void 0;
-// { <posix class>: [<translation>, /u flag required, negated]
-const posixClasses = {
-    '[:alnum:]': ['\\p{L}\\p{Nl}\\p{Nd}', true],
-    '[:alpha:]': ['\\p{L}\\p{Nl}', true],
-    '[:ascii:]': ['\\x' + '00-\\x' + '7f', false],
-    '[:blank:]': ['\\p{Zs}\\t', true],
-    '[:cntrl:]': ['\\p{Cc}', true],
-    '[:digit:]': ['\\p{Nd}', true],
-    '[:graph:]': ['\\p{Z}\\p{C}', true, true],
-    '[:lower:]': ['\\p{Ll}', true],
-    '[:print:]': ['\\p{C}', true],
-    '[:punct:]': ['\\p{P}', true],
-    '[:space:]': ['\\p{Z}\\t\\r\\n\\v\\f', true],
-    '[:upper:]': ['\\p{Lu}', true],
-    '[:word:]': ['\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}', true],
-    '[:xdigit:]': ['A-Fa-f0-9', false],
-};
-// only need to escape a few things inside of brace expressions
-// escapes: [ \ ] -
-const braceEscape = (s) => s.replace(/[[\]\\-]/g, '\\$&');
-// escape all regexp magic characters
-const regexpEscape = (s) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
-// everything has already been escaped, we just have to join
-const rangesToString = (ranges) => ranges.join('');
-// takes a glob string at a posix brace expression, and returns
-// an equivalent regular expression source, and boolean indicating
-// whether the /u flag needs to be applied, and the number of chars
-// consumed to parse the character class.
-// This also removes out of order ranges, and returns ($.) if the
-// entire class just no good.
-const parseClass = (glob, position) => {
-    const pos = position;
-    /* c8 ignore start */
-    if (glob.charAt(pos) !== '[') {
-        throw new Error('not in a brace expression');
-    }
-    /* c8 ignore stop */
-    const ranges = [];
-    const negs = [];
-    let i = pos + 1;
-    let sawStart = false;
-    let uflag = false;
-    let escaping = false;
-    let negate = false;
-    let endPos = pos;
-    let rangeStart = '';
-    WHILE: while (i < glob.length) {
-        const c = glob.charAt(i);
-        if ((c === '!' || c === '^') && i === pos + 1) {
-            negate = true;
-            i++;
-            continue;
-        }
-        if (c === ']' && sawStart && !escaping) {
-            endPos = i + 1;
-            break;
-        }
-        sawStart = true;
-        if (c === '\\') {
-            if (!escaping) {
-                escaping = true;
-                i++;
-                continue;
-            }
-            // escaped \ char, fall through and treat like normal char
-        }
-        if (c === '[' && !escaping) {
-            // either a posix class, a collation equivalent, or just a [
-            for (const [cls, [unip, u, neg]] of Object.entries(posixClasses)) {
-                if (glob.startsWith(cls, i)) {
-                    // invalid, [a-[] is fine, but not [a-[:alpha]]
-                    if (rangeStart) {
-                        return ['$.', false, glob.length - pos, true];
-                    }
-                    i += cls.length;
-                    if (neg)
-                        negs.push(unip);
-                    else
-                        ranges.push(unip);
-                    uflag = uflag || u;
-                    continue WHILE;
-                }
-            }
-        }
-        // now it's just a normal character, effectively
-        escaping = false;
-        if (rangeStart) {
-            // throw this range away if it's not valid, but others
-            // can still match.
-            if (c > rangeStart) {
-                ranges.push(braceEscape(rangeStart) + '-' + braceEscape(c));
-            }
-            else if (c === rangeStart) {
-                ranges.push(braceEscape(c));
-            }
-            rangeStart = '';
-            i++;
-            continue;
-        }
-        // now might be the start of a range.
-        // can be either c-d or c-] or c<more...>] or c] at this point
-        if (glob.startsWith('-]', i + 1)) {
-            ranges.push(braceEscape(c + '-'));
-            i += 2;
-            continue;
-        }
-        if (glob.startsWith('-', i + 1)) {
-            rangeStart = c;
-            i += 2;
-            continue;
-        }
-        // not the start of a range, just a single character
-        ranges.push(braceEscape(c));
-        i++;
-    }
-    if (endPos < i) {
-        // didn't see the end of the class, not a valid class,
-        // but might still be valid as a literal match.
-        return ['', false, 0, false];
-    }
-    // if we got no ranges and no negates, then we have a range that
-    // cannot possibly match anything, and that poisons the whole glob
-    if (!ranges.length && !negs.length) {
-        return ['$.', false, glob.length - pos, true];
-    }
-    // if we got one positive range, and it's a single character, then that's
-    // not actually a magic pattern, it's just that one literal character.
-    // we should not treat that as "magic", we should just return the literal
-    // character. [_] is a perfectly valid way to escape glob magic chars.
-    if (negs.length === 0 &&
-        ranges.length === 1 &&
-        /^\\?.$/.test(ranges[0]) &&
-        !negate) {
-        const r = ranges[0].length === 2 ? ranges[0].slice(-1) : ranges[0];
-        return [regexpEscape(r), false, endPos - pos, false];
-    }
-    const sranges = '[' + (negate ? '^' : '') + rangesToString(ranges) + ']';
-    const snegs = '[' + (negate ? '' : '^') + rangesToString(negs) + ']';
-    const comb = ranges.length && negs.length
-        ? '(' + sranges + '|' + snegs + ')'
-        : ranges.length
-            ? sranges
-            : snegs;
-    return [comb, uflag, endPos - pos, true];
-};
-exports.parseClass = parseClass;
-//# sourceMappingURL=brace-expressions.js.map
-
-/***/ }),
-
-/***/ 6726:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.escape = void 0;
+;// CONCATENATED MODULE: ./node_modules/glob/node_modules/minimatch/dist/esm/escape.js
 /**
  * Escape all magic characters in a glob pattern.
  *
@@ -32456,7 +30433,7 @@ exports.escape = void 0;
  * that exact character.  In this mode, `\` is _not_ escaped, because it is
  * not interpreted as a magic character, but instead as a path separator.
  */
-const escape = (s, { windowsPathsNoEscape = false, } = {}) => {
+const escape_escape = (s, { windowsPathsNoEscape = false, } = {}) => {
     // don't need to escape +@! because we escape the parens
     // that make those magic, and escaping ! as [!] isn't valid,
     // because [!]] is a valid glob class meaning not ']'.
@@ -32464,35 +30441,21 @@ const escape = (s, { windowsPathsNoEscape = false, } = {}) => {
         ? s.replace(/[?*()[\]]/g, '[$&]')
         : s.replace(/[?*()[\]\\]/g, '\\$&');
 };
-exports.escape = escape;
 //# sourceMappingURL=escape.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/node_modules/minimatch/dist/esm/index.js
 
-/***/ }),
 
-/***/ 1409:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
-"use strict";
 
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.unescape = exports.escape = exports.AST = exports.Minimatch = exports.match = exports.makeRe = exports.braceExpand = exports.defaults = exports.filter = exports.GLOBSTAR = exports.sep = exports.minimatch = void 0;
-const brace_expansion_1 = __importDefault(__nccwpck_require__(4691));
-const assert_valid_pattern_js_1 = __nccwpck_require__(8895);
-const ast_js_1 = __nccwpck_require__(3238);
-const escape_js_1 = __nccwpck_require__(6726);
-const unescape_js_1 = __nccwpck_require__(9829);
+
 const minimatch = (p, pattern, options = {}) => {
-    (0, assert_valid_pattern_js_1.assertValidPattern)(pattern);
+    assertValidPattern(pattern);
     // shortcut: comments match nothing.
     if (!options.nocomment && pattern.charAt(0) === '#') {
         return false;
     }
     return new Minimatch(pattern, options).match(p);
 };
-exports.minimatch = minimatch;
 // Optimized checking for the most common glob patterns.
 const starDotExtRE = /^\*+([^+@!?\*\[\(]*)$/;
 const starDotExtTest = (ext) => (f) => !f.startsWith('.') && f.endsWith(ext);
@@ -32556,15 +30519,15 @@ const path = {
     posix: { sep: '/' },
 };
 /* c8 ignore stop */
-exports.sep = defaultPlatform === 'win32' ? path.win32.sep : path.posix.sep;
-exports.minimatch.sep = exports.sep;
-exports.GLOBSTAR = Symbol('globstar **');
-exports.minimatch.GLOBSTAR = exports.GLOBSTAR;
+const sep = defaultPlatform === 'win32' ? path.win32.sep : path.posix.sep;
+minimatch.sep = sep;
+const GLOBSTAR = Symbol('globstar **');
+minimatch.GLOBSTAR = GLOBSTAR;
 // any single thing other than /
 // don't need to escape / when using new RegExp()
-const qmark = '[^/]';
+const esm_qmark = '[^/]';
 // * => any number of characters
-const star = qmark + '*?';
+const esm_star = esm_qmark + '*?';
 // ** when dots are allowed.  Anything goes, except .. and .
 // not (^ or / followed by one or two dots followed by $ or /),
 // followed by anything, any number of times.
@@ -32572,15 +30535,14 @@ const twoStarDot = '(?:(?!(?:\\/|^)(?:\\.{1,2})($|\\/)).)*?';
 // not a ^ or / followed by a dot,
 // followed by anything, any number of times.
 const twoStarNoDot = '(?:(?!(?:\\/|^)\\.).)*?';
-const filter = (pattern, options = {}) => (p) => (0, exports.minimatch)(p, pattern, options);
-exports.filter = filter;
-exports.minimatch.filter = exports.filter;
+const filter = (pattern, options = {}) => (p) => minimatch(p, pattern, options);
+minimatch.filter = filter;
 const ext = (a, b = {}) => Object.assign({}, a, b);
 const defaults = (def) => {
     if (!def || typeof def !== 'object' || !Object.keys(def).length) {
-        return exports.minimatch;
+        return minimatch;
     }
-    const orig = exports.minimatch;
+    const orig = minimatch;
     const m = (p, pattern, options = {}) => orig(p, pattern, ext(def, options));
     return Object.assign(m, {
         Minimatch: class Minimatch extends orig.Minimatch {
@@ -32609,11 +30571,10 @@ const defaults = (def) => {
         braceExpand: (pattern, options = {}) => orig.braceExpand(pattern, ext(def, options)),
         match: (list, pattern, options = {}) => orig.match(list, pattern, ext(def, options)),
         sep: orig.sep,
-        GLOBSTAR: exports.GLOBSTAR,
+        GLOBSTAR: GLOBSTAR,
     });
 };
-exports.defaults = defaults;
-exports.minimatch.defaults = exports.defaults;
+minimatch.defaults = defaults;
 // Brace expansion:
 // a{b,c}d -> abd acd
 // a{b,}c -> abc ac
@@ -32625,17 +30586,16 @@ exports.minimatch.defaults = exports.defaults;
 // a{2..}b -> a{2..}b
 // a{b}c -> a{b}c
 const braceExpand = (pattern, options = {}) => {
-    (0, assert_valid_pattern_js_1.assertValidPattern)(pattern);
+    assertValidPattern(pattern);
     // Thanks to Yeting Li <https://github.com/yetingli> for
     // improving this regexp to avoid a ReDOS vulnerability.
     if (options.nobrace || !/\{(?:(?!\{).)*\}/.test(pattern)) {
         // shortcut. no need to expand.
         return [pattern];
     }
-    return (0, brace_expansion_1.default)(pattern);
+    return expand(pattern);
 };
-exports.braceExpand = braceExpand;
-exports.minimatch.braceExpand = exports.braceExpand;
+minimatch.braceExpand = braceExpand;
 // parse a component of the expanded set.
 // At this point, no pattern may contain "/" in it
 // so we're going to return a 2d array, where each entry is the full
@@ -32648,8 +30608,7 @@ exports.minimatch.braceExpand = exports.braceExpand;
 // of * is equivalent to a single *.  Globstar behavior is enabled by
 // default, and can be disabled by setting options.noglobstar.
 const makeRe = (pattern, options = {}) => new Minimatch(pattern, options).makeRe();
-exports.makeRe = makeRe;
-exports.minimatch.makeRe = exports.makeRe;
+minimatch.makeRe = makeRe;
 const match = (list, pattern, options = {}) => {
     const mm = new Minimatch(pattern, options);
     list = list.filter(f => mm.match(f));
@@ -32658,11 +30617,10 @@ const match = (list, pattern, options = {}) => {
     }
     return list;
 };
-exports.match = match;
-exports.minimatch.match = exports.match;
+minimatch.match = match;
 // replace stuff like \* with *
 const globMagic = /[?*]|[+@!]\(.*?\)|\[|\]/;
-const regExpEscape = (s) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+const esm_regExpEscape = (s) => s.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 class Minimatch {
     options;
     set;
@@ -32682,7 +30640,7 @@ class Minimatch {
     windowsNoMagicRoot;
     regexp;
     constructor(pattern, options = {}) {
-        (0, assert_valid_pattern_js_1.assertValidPattern)(pattern);
+        assertValidPattern(pattern);
         options = options || {};
         this.options = options;
         this.pattern = pattern;
@@ -33137,7 +31095,7 @@ class Minimatch {
                 return false;
             }
             /* c8 ignore stop */
-            if (p === exports.GLOBSTAR) {
+            if (p === GLOBSTAR) {
                 this.debug('GLOBSTAR', [pattern, p, f]);
                 // "**"
                 // a/**/b/**/c would match the following:
@@ -33268,14 +31226,14 @@ class Minimatch {
         /* c8 ignore stop */
     }
     braceExpand() {
-        return (0, exports.braceExpand)(this.pattern, this.options);
+        return braceExpand(this.pattern, this.options);
     }
     parse(pattern) {
-        (0, assert_valid_pattern_js_1.assertValidPattern)(pattern);
+        assertValidPattern(pattern);
         const options = this.options;
         // shortcuts
         if (pattern === '**')
-            return exports.GLOBSTAR;
+            return GLOBSTAR;
         if (pattern === '')
             return '';
         // far and away, the most common glob pattern parts are
@@ -33309,7 +31267,7 @@ class Minimatch {
         else if ((m = pattern.match(dotStarRE))) {
             fastTest = dotStarTest;
         }
-        const re = ast_js_1.AST.fromGlob(pattern, this.options).toMMPattern();
+        const re = AST.fromGlob(pattern, this.options).toMMPattern();
         if (fastTest && typeof re === 'object') {
             // Avoids overriding in frozen environments
             Reflect.defineProperty(re, 'test', { value: fastTest });
@@ -33332,7 +31290,7 @@ class Minimatch {
         }
         const options = this.options;
         const twoStar = options.noglobstar
-            ? star
+            ? esm_star
             : options.dot
                 ? twoStarDot
                 : twoStarNoDot;
@@ -33351,19 +31309,19 @@ class Minimatch {
                         flags.add(f);
                 }
                 return typeof p === 'string'
-                    ? regExpEscape(p)
-                    : p === exports.GLOBSTAR
-                        ? exports.GLOBSTAR
+                    ? esm_regExpEscape(p)
+                    : p === GLOBSTAR
+                        ? GLOBSTAR
                         : p._src;
             });
             pp.forEach((p, i) => {
                 const next = pp[i + 1];
                 const prev = pp[i - 1];
-                if (p !== exports.GLOBSTAR || prev === exports.GLOBSTAR) {
+                if (p !== GLOBSTAR || prev === GLOBSTAR) {
                     return;
                 }
                 if (prev === undefined) {
-                    if (next !== undefined && next !== exports.GLOBSTAR) {
+                    if (next !== undefined && next !== GLOBSTAR) {
                         pp[i + 1] = '(?:\\/|' + twoStar + '\\/)?' + next;
                     }
                     else {
@@ -33373,12 +31331,12 @@ class Minimatch {
                 else if (next === undefined) {
                     pp[i - 1] = prev + '(?:\\/|' + twoStar + ')?';
                 }
-                else if (next !== exports.GLOBSTAR) {
+                else if (next !== GLOBSTAR) {
                     pp[i - 1] = prev + '(?:\\/|\\/' + twoStar + '\\/)' + next;
-                    pp[i + 1] = exports.GLOBSTAR;
+                    pp[i + 1] = GLOBSTAR;
                 }
             });
-            return pp.filter(p => p !== exports.GLOBSTAR).join('/');
+            return pp.filter(p => p !== GLOBSTAR).join('/');
         })
             .join('|');
         // need to wrap in parens if we had more than one thing with |,
@@ -33473,3125 +31431,25 @@ class Minimatch {
         return this.negate;
     }
     static defaults(def) {
-        return exports.minimatch.defaults(def).Minimatch;
+        return minimatch.defaults(def).Minimatch;
     }
 }
-exports.Minimatch = Minimatch;
 /* c8 ignore start */
-var ast_js_2 = __nccwpck_require__(3238);
-Object.defineProperty(exports, "AST", ({ enumerable: true, get: function () { return ast_js_2.AST; } }));
-var escape_js_2 = __nccwpck_require__(6726);
-Object.defineProperty(exports, "escape", ({ enumerable: true, get: function () { return escape_js_2.escape; } }));
-var unescape_js_2 = __nccwpck_require__(9829);
-Object.defineProperty(exports, "unescape", ({ enumerable: true, get: function () { return unescape_js_2.unescape; } }));
+
+
+
 /* c8 ignore stop */
-exports.minimatch.AST = ast_js_1.AST;
-exports.minimatch.Minimatch = Minimatch;
-exports.minimatch.escape = escape_js_1.escape;
-exports.minimatch.unescape = unescape_js_1.unescape;
+minimatch.AST = AST;
+minimatch.Minimatch = Minimatch;
+minimatch.escape = escape_escape;
+minimatch.unescape = unescape_unescape;
 //# sourceMappingURL=index.js.map
-
-/***/ }),
-
-/***/ 9829:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.unescape = void 0;
-/**
- * Un-escape a string that has been escaped with {@link escape}.
- *
- * If the {@link windowsPathsNoEscape} option is used, then square-brace
- * escapes are removed, but not backslash escapes.  For example, it will turn
- * the string `'[*]'` into `*`, but it will not turn `'\\*'` into `'*'`,
- * becuase `\` is a path separator in `windowsPathsNoEscape` mode.
- *
- * When `windowsPathsNoEscape` is not set, then both brace escapes and
- * backslash escapes are removed.
- *
- * Slashes (and backslashes in `windowsPathsNoEscape` mode) cannot be escaped
- * or unescaped.
- */
-const unescape = (s, { windowsPathsNoEscape = false, } = {}) => {
-    return windowsPathsNoEscape
-        ? s.replace(/\[([^\/\\])\]/g, '$1')
-        : s.replace(/((?!\\).|^)\[([^\/\\])\]/g, '$1$2').replace(/\\([^\/])/g, '$1');
-};
-exports.unescape = unescape;
-//# sourceMappingURL=unescape.js.map
-
-/***/ }),
-
-/***/ 8275:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.Minipass = exports.isWritable = exports.isReadable = exports.isStream = void 0;
-const proc = typeof process === 'object' && process
-    ? process
-    : {
-        stdout: null,
-        stderr: null,
-    };
-const node_events_1 = __nccwpck_require__(8474);
-const node_stream_1 = __importDefault(__nccwpck_require__(7075));
-const node_string_decoder_1 = __nccwpck_require__(6193);
-/**
- * Return true if the argument is a Minipass stream, Node stream, or something
- * else that Minipass can interact with.
- */
-const isStream = (s) => !!s &&
-    typeof s === 'object' &&
-    (s instanceof Minipass ||
-        s instanceof node_stream_1.default ||
-        (0, exports.isReadable)(s) ||
-        (0, exports.isWritable)(s));
-exports.isStream = isStream;
-/**
- * Return true if the argument is a valid {@link Minipass.Readable}
- */
-const isReadable = (s) => !!s &&
-    typeof s === 'object' &&
-    s instanceof node_events_1.EventEmitter &&
-    typeof s.pipe === 'function' &&
-    // node core Writable streams have a pipe() method, but it throws
-    s.pipe !== node_stream_1.default.Writable.prototype.pipe;
-exports.isReadable = isReadable;
-/**
- * Return true if the argument is a valid {@link Minipass.Writable}
- */
-const isWritable = (s) => !!s &&
-    typeof s === 'object' &&
-    s instanceof node_events_1.EventEmitter &&
-    typeof s.write === 'function' &&
-    typeof s.end === 'function';
-exports.isWritable = isWritable;
-const EOF = Symbol('EOF');
-const MAYBE_EMIT_END = Symbol('maybeEmitEnd');
-const EMITTED_END = Symbol('emittedEnd');
-const EMITTING_END = Symbol('emittingEnd');
-const EMITTED_ERROR = Symbol('emittedError');
-const CLOSED = Symbol('closed');
-const READ = Symbol('read');
-const FLUSH = Symbol('flush');
-const FLUSHCHUNK = Symbol('flushChunk');
-const ENCODING = Symbol('encoding');
-const DECODER = Symbol('decoder');
-const FLOWING = Symbol('flowing');
-const PAUSED = Symbol('paused');
-const RESUME = Symbol('resume');
-const BUFFER = Symbol('buffer');
-const PIPES = Symbol('pipes');
-const BUFFERLENGTH = Symbol('bufferLength');
-const BUFFERPUSH = Symbol('bufferPush');
-const BUFFERSHIFT = Symbol('bufferShift');
-const OBJECTMODE = Symbol('objectMode');
-// internal event when stream is destroyed
-const DESTROYED = Symbol('destroyed');
-// internal event when stream has an error
-const ERROR = Symbol('error');
-const EMITDATA = Symbol('emitData');
-const EMITEND = Symbol('emitEnd');
-const EMITEND2 = Symbol('emitEnd2');
-const ASYNC = Symbol('async');
-const ABORT = Symbol('abort');
-const ABORTED = Symbol('aborted');
-const SIGNAL = Symbol('signal');
-const DATALISTENERS = Symbol('dataListeners');
-const DISCARDED = Symbol('discarded');
-const defer = (fn) => Promise.resolve().then(fn);
-const nodefer = (fn) => fn();
-const isEndish = (ev) => ev === 'end' || ev === 'finish' || ev === 'prefinish';
-const isArrayBufferLike = (b) => b instanceof ArrayBuffer ||
-    (!!b &&
-        typeof b === 'object' &&
-        b.constructor &&
-        b.constructor.name === 'ArrayBuffer' &&
-        b.byteLength >= 0);
-const isArrayBufferView = (b) => !Buffer.isBuffer(b) && ArrayBuffer.isView(b);
-/**
- * Internal class representing a pipe to a destination stream.
- *
- * @internal
- */
-class Pipe {
-    src;
-    dest;
-    opts;
-    ondrain;
-    constructor(src, dest, opts) {
-        this.src = src;
-        this.dest = dest;
-        this.opts = opts;
-        this.ondrain = () => src[RESUME]();
-        this.dest.on('drain', this.ondrain);
-    }
-    unpipe() {
-        this.dest.removeListener('drain', this.ondrain);
-    }
-    // only here for the prototype
-    /* c8 ignore start */
-    proxyErrors(_er) { }
-    /* c8 ignore stop */
-    end() {
-        this.unpipe();
-        if (this.opts.end)
-            this.dest.end();
-    }
-}
-/**
- * Internal class representing a pipe to a destination stream where
- * errors are proxied.
- *
- * @internal
- */
-class PipeProxyErrors extends Pipe {
-    unpipe() {
-        this.src.removeListener('error', this.proxyErrors);
-        super.unpipe();
-    }
-    constructor(src, dest, opts) {
-        super(src, dest, opts);
-        this.proxyErrors = er => dest.emit('error', er);
-        src.on('error', this.proxyErrors);
-    }
-}
-const isObjectModeOptions = (o) => !!o.objectMode;
-const isEncodingOptions = (o) => !o.objectMode && !!o.encoding && o.encoding !== 'buffer';
-/**
- * Main export, the Minipass class
- *
- * `RType` is the type of data emitted, defaults to Buffer
- *
- * `WType` is the type of data to be written, if RType is buffer or string,
- * then any {@link Minipass.ContiguousData} is allowed.
- *
- * `Events` is the set of event handler signatures that this object
- * will emit, see {@link Minipass.Events}
- */
-class Minipass extends node_events_1.EventEmitter {
-    [FLOWING] = false;
-    [PAUSED] = false;
-    [PIPES] = [];
-    [BUFFER] = [];
-    [OBJECTMODE];
-    [ENCODING];
-    [ASYNC];
-    [DECODER];
-    [EOF] = false;
-    [EMITTED_END] = false;
-    [EMITTING_END] = false;
-    [CLOSED] = false;
-    [EMITTED_ERROR] = null;
-    [BUFFERLENGTH] = 0;
-    [DESTROYED] = false;
-    [SIGNAL];
-    [ABORTED] = false;
-    [DATALISTENERS] = 0;
-    [DISCARDED] = false;
-    /**
-     * true if the stream can be written
-     */
-    writable = true;
-    /**
-     * true if the stream can be read
-     */
-    readable = true;
-    /**
-     * If `RType` is Buffer, then options do not need to be provided.
-     * Otherwise, an options object must be provided to specify either
-     * {@link Minipass.SharedOptions.objectMode} or
-     * {@link Minipass.SharedOptions.encoding}, as appropriate.
-     */
-    constructor(...args) {
-        const options = (args[0] ||
-            {});
-        super();
-        if (options.objectMode && typeof options.encoding === 'string') {
-            throw new TypeError('Encoding and objectMode may not be used together');
-        }
-        if (isObjectModeOptions(options)) {
-            this[OBJECTMODE] = true;
-            this[ENCODING] = null;
-        }
-        else if (isEncodingOptions(options)) {
-            this[ENCODING] = options.encoding;
-            this[OBJECTMODE] = false;
-        }
-        else {
-            this[OBJECTMODE] = false;
-            this[ENCODING] = null;
-        }
-        this[ASYNC] = !!options.async;
-        this[DECODER] = this[ENCODING]
-            ? new node_string_decoder_1.StringDecoder(this[ENCODING])
-            : null;
-        //@ts-ignore - private option for debugging and testing
-        if (options && options.debugExposeBuffer === true) {
-            Object.defineProperty(this, 'buffer', { get: () => this[BUFFER] });
-        }
-        //@ts-ignore - private option for debugging and testing
-        if (options && options.debugExposePipes === true) {
-            Object.defineProperty(this, 'pipes', { get: () => this[PIPES] });
-        }
-        const { signal } = options;
-        if (signal) {
-            this[SIGNAL] = signal;
-            if (signal.aborted) {
-                this[ABORT]();
-            }
-            else {
-                signal.addEventListener('abort', () => this[ABORT]());
-            }
-        }
-    }
-    /**
-     * The amount of data stored in the buffer waiting to be read.
-     *
-     * For Buffer strings, this will be the total byte length.
-     * For string encoding streams, this will be the string character length,
-     * according to JavaScript's `string.length` logic.
-     * For objectMode streams, this is a count of the items waiting to be
-     * emitted.
-     */
-    get bufferLength() {
-        return this[BUFFERLENGTH];
-    }
-    /**
-     * The `BufferEncoding` currently in use, or `null`
-     */
-    get encoding() {
-        return this[ENCODING];
-    }
-    /**
-     * @deprecated - This is a read only property
-     */
-    set encoding(_enc) {
-        throw new Error('Encoding must be set at instantiation time');
-    }
-    /**
-     * @deprecated - Encoding may only be set at instantiation time
-     */
-    setEncoding(_enc) {
-        throw new Error('Encoding must be set at instantiation time');
-    }
-    /**
-     * True if this is an objectMode stream
-     */
-    get objectMode() {
-        return this[OBJECTMODE];
-    }
-    /**
-     * @deprecated - This is a read-only property
-     */
-    set objectMode(_om) {
-        throw new Error('objectMode must be set at instantiation time');
-    }
-    /**
-     * true if this is an async stream
-     */
-    get ['async']() {
-        return this[ASYNC];
-    }
-    /**
-     * Set to true to make this stream async.
-     *
-     * Once set, it cannot be unset, as this would potentially cause incorrect
-     * behavior.  Ie, a sync stream can be made async, but an async stream
-     * cannot be safely made sync.
-     */
-    set ['async'](a) {
-        this[ASYNC] = this[ASYNC] || !!a;
-    }
-    // drop everything and get out of the flow completely
-    [ABORT]() {
-        this[ABORTED] = true;
-        this.emit('abort', this[SIGNAL]?.reason);
-        this.destroy(this[SIGNAL]?.reason);
-    }
-    /**
-     * True if the stream has been aborted.
-     */
-    get aborted() {
-        return this[ABORTED];
-    }
-    /**
-     * No-op setter. Stream aborted status is set via the AbortSignal provided
-     * in the constructor options.
-     */
-    set aborted(_) { }
-    write(chunk, encoding, cb) {
-        if (this[ABORTED])
-            return false;
-        if (this[EOF])
-            throw new Error('write after end');
-        if (this[DESTROYED]) {
-            this.emit('error', Object.assign(new Error('Cannot call write after a stream was destroyed'), { code: 'ERR_STREAM_DESTROYED' }));
-            return true;
-        }
-        if (typeof encoding === 'function') {
-            cb = encoding;
-            encoding = 'utf8';
-        }
-        if (!encoding)
-            encoding = 'utf8';
-        const fn = this[ASYNC] ? defer : nodefer;
-        // convert array buffers and typed array views into buffers
-        // at some point in the future, we may want to do the opposite!
-        // leave strings and buffers as-is
-        // anything is only allowed if in object mode, so throw
-        if (!this[OBJECTMODE] && !Buffer.isBuffer(chunk)) {
-            if (isArrayBufferView(chunk)) {
-                //@ts-ignore - sinful unsafe type changing
-                chunk = Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
-            }
-            else if (isArrayBufferLike(chunk)) {
-                //@ts-ignore - sinful unsafe type changing
-                chunk = Buffer.from(chunk);
-            }
-            else if (typeof chunk !== 'string') {
-                throw new Error('Non-contiguous data written to non-objectMode stream');
-            }
-        }
-        // handle object mode up front, since it's simpler
-        // this yields better performance, fewer checks later.
-        if (this[OBJECTMODE]) {
-            // maybe impossible?
-            /* c8 ignore start */
-            if (this[FLOWING] && this[BUFFERLENGTH] !== 0)
-                this[FLUSH](true);
-            /* c8 ignore stop */
-            if (this[FLOWING])
-                this.emit('data', chunk);
-            else
-                this[BUFFERPUSH](chunk);
-            if (this[BUFFERLENGTH] !== 0)
-                this.emit('readable');
-            if (cb)
-                fn(cb);
-            return this[FLOWING];
-        }
-        // at this point the chunk is a buffer or string
-        // don't buffer it up or send it to the decoder
-        if (!chunk.length) {
-            if (this[BUFFERLENGTH] !== 0)
-                this.emit('readable');
-            if (cb)
-                fn(cb);
-            return this[FLOWING];
-        }
-        // fast-path writing strings of same encoding to a stream with
-        // an empty buffer, skipping the buffer/decoder dance
-        if (typeof chunk === 'string' &&
-            // unless it is a string already ready for us to use
-            !(encoding === this[ENCODING] && !this[DECODER]?.lastNeed)) {
-            //@ts-ignore - sinful unsafe type change
-            chunk = Buffer.from(chunk, encoding);
-        }
-        if (Buffer.isBuffer(chunk) && this[ENCODING]) {
-            //@ts-ignore - sinful unsafe type change
-            chunk = this[DECODER].write(chunk);
-        }
-        // Note: flushing CAN potentially switch us into not-flowing mode
-        if (this[FLOWING] && this[BUFFERLENGTH] !== 0)
-            this[FLUSH](true);
-        if (this[FLOWING])
-            this.emit('data', chunk);
-        else
-            this[BUFFERPUSH](chunk);
-        if (this[BUFFERLENGTH] !== 0)
-            this.emit('readable');
-        if (cb)
-            fn(cb);
-        return this[FLOWING];
-    }
-    /**
-     * Low-level explicit read method.
-     *
-     * In objectMode, the argument is ignored, and one item is returned if
-     * available.
-     *
-     * `n` is the number of bytes (or in the case of encoding streams,
-     * characters) to consume. If `n` is not provided, then the entire buffer
-     * is returned, or `null` is returned if no data is available.
-     *
-     * If `n` is greater that the amount of data in the internal buffer,
-     * then `null` is returned.
-     */
-    read(n) {
-        if (this[DESTROYED])
-            return null;
-        this[DISCARDED] = false;
-        if (this[BUFFERLENGTH] === 0 ||
-            n === 0 ||
-            (n && n > this[BUFFERLENGTH])) {
-            this[MAYBE_EMIT_END]();
-            return null;
-        }
-        if (this[OBJECTMODE])
-            n = null;
-        if (this[BUFFER].length > 1 && !this[OBJECTMODE]) {
-            // not object mode, so if we have an encoding, then RType is string
-            // otherwise, must be Buffer
-            this[BUFFER] = [
-                (this[ENCODING]
-                    ? this[BUFFER].join('')
-                    : Buffer.concat(this[BUFFER], this[BUFFERLENGTH])),
-            ];
-        }
-        const ret = this[READ](n || null, this[BUFFER][0]);
-        this[MAYBE_EMIT_END]();
-        return ret;
-    }
-    [READ](n, chunk) {
-        if (this[OBJECTMODE])
-            this[BUFFERSHIFT]();
-        else {
-            const c = chunk;
-            if (n === c.length || n === null)
-                this[BUFFERSHIFT]();
-            else if (typeof c === 'string') {
-                this[BUFFER][0] = c.slice(n);
-                chunk = c.slice(0, n);
-                this[BUFFERLENGTH] -= n;
-            }
-            else {
-                this[BUFFER][0] = c.subarray(n);
-                chunk = c.subarray(0, n);
-                this[BUFFERLENGTH] -= n;
-            }
-        }
-        this.emit('data', chunk);
-        if (!this[BUFFER].length && !this[EOF])
-            this.emit('drain');
-        return chunk;
-    }
-    end(chunk, encoding, cb) {
-        if (typeof chunk === 'function') {
-            cb = chunk;
-            chunk = undefined;
-        }
-        if (typeof encoding === 'function') {
-            cb = encoding;
-            encoding = 'utf8';
-        }
-        if (chunk !== undefined)
-            this.write(chunk, encoding);
-        if (cb)
-            this.once('end', cb);
-        this[EOF] = true;
-        this.writable = false;
-        // if we haven't written anything, then go ahead and emit,
-        // even if we're not reading.
-        // we'll re-emit if a new 'end' listener is added anyway.
-        // This makes MP more suitable to write-only use cases.
-        if (this[FLOWING] || !this[PAUSED])
-            this[MAYBE_EMIT_END]();
-        return this;
-    }
-    // don't let the internal resume be overwritten
-    [RESUME]() {
-        if (this[DESTROYED])
-            return;
-        if (!this[DATALISTENERS] && !this[PIPES].length) {
-            this[DISCARDED] = true;
-        }
-        this[PAUSED] = false;
-        this[FLOWING] = true;
-        this.emit('resume');
-        if (this[BUFFER].length)
-            this[FLUSH]();
-        else if (this[EOF])
-            this[MAYBE_EMIT_END]();
-        else
-            this.emit('drain');
-    }
-    /**
-     * Resume the stream if it is currently in a paused state
-     *
-     * If called when there are no pipe destinations or `data` event listeners,
-     * this will place the stream in a "discarded" state, where all data will
-     * be thrown away. The discarded state is removed if a pipe destination or
-     * data handler is added, if pause() is called, or if any synchronous or
-     * asynchronous iteration is started.
-     */
-    resume() {
-        return this[RESUME]();
-    }
-    /**
-     * Pause the stream
-     */
-    pause() {
-        this[FLOWING] = false;
-        this[PAUSED] = true;
-        this[DISCARDED] = false;
-    }
-    /**
-     * true if the stream has been forcibly destroyed
-     */
-    get destroyed() {
-        return this[DESTROYED];
-    }
-    /**
-     * true if the stream is currently in a flowing state, meaning that
-     * any writes will be immediately emitted.
-     */
-    get flowing() {
-        return this[FLOWING];
-    }
-    /**
-     * true if the stream is currently in a paused state
-     */
-    get paused() {
-        return this[PAUSED];
-    }
-    [BUFFERPUSH](chunk) {
-        if (this[OBJECTMODE])
-            this[BUFFERLENGTH] += 1;
-        else
-            this[BUFFERLENGTH] += chunk.length;
-        this[BUFFER].push(chunk);
-    }
-    [BUFFERSHIFT]() {
-        if (this[OBJECTMODE])
-            this[BUFFERLENGTH] -= 1;
-        else
-            this[BUFFERLENGTH] -= this[BUFFER][0].length;
-        return this[BUFFER].shift();
-    }
-    [FLUSH](noDrain = false) {
-        do { } while (this[FLUSHCHUNK](this[BUFFERSHIFT]()) &&
-            this[BUFFER].length);
-        if (!noDrain && !this[BUFFER].length && !this[EOF])
-            this.emit('drain');
-    }
-    [FLUSHCHUNK](chunk) {
-        this.emit('data', chunk);
-        return this[FLOWING];
-    }
-    /**
-     * Pipe all data emitted by this stream into the destination provided.
-     *
-     * Triggers the flow of data.
-     */
-    pipe(dest, opts) {
-        if (this[DESTROYED])
-            return dest;
-        this[DISCARDED] = false;
-        const ended = this[EMITTED_END];
-        opts = opts || {};
-        if (dest === proc.stdout || dest === proc.stderr)
-            opts.end = false;
-        else
-            opts.end = opts.end !== false;
-        opts.proxyErrors = !!opts.proxyErrors;
-        // piping an ended stream ends immediately
-        if (ended) {
-            if (opts.end)
-                dest.end();
-        }
-        else {
-            // "as" here just ignores the WType, which pipes don't care about,
-            // since they're only consuming from us, and writing to the dest
-            this[PIPES].push(!opts.proxyErrors
-                ? new Pipe(this, dest, opts)
-                : new PipeProxyErrors(this, dest, opts));
-            if (this[ASYNC])
-                defer(() => this[RESUME]());
-            else
-                this[RESUME]();
-        }
-        return dest;
-    }
-    /**
-     * Fully unhook a piped destination stream.
-     *
-     * If the destination stream was the only consumer of this stream (ie,
-     * there are no other piped destinations or `'data'` event listeners)
-     * then the flow of data will stop until there is another consumer or
-     * {@link Minipass#resume} is explicitly called.
-     */
-    unpipe(dest) {
-        const p = this[PIPES].find(p => p.dest === dest);
-        if (p) {
-            if (this[PIPES].length === 1) {
-                if (this[FLOWING] && this[DATALISTENERS] === 0) {
-                    this[FLOWING] = false;
-                }
-                this[PIPES] = [];
-            }
-            else
-                this[PIPES].splice(this[PIPES].indexOf(p), 1);
-            p.unpipe();
-        }
-    }
-    /**
-     * Alias for {@link Minipass#on}
-     */
-    addListener(ev, handler) {
-        return this.on(ev, handler);
-    }
-    /**
-     * Mostly identical to `EventEmitter.on`, with the following
-     * behavior differences to prevent data loss and unnecessary hangs:
-     *
-     * - Adding a 'data' event handler will trigger the flow of data
-     *
-     * - Adding a 'readable' event handler when there is data waiting to be read
-     *   will cause 'readable' to be emitted immediately.
-     *
-     * - Adding an 'endish' event handler ('end', 'finish', etc.) which has
-     *   already passed will cause the event to be emitted immediately and all
-     *   handlers removed.
-     *
-     * - Adding an 'error' event handler after an error has been emitted will
-     *   cause the event to be re-emitted immediately with the error previously
-     *   raised.
-     */
-    on(ev, handler) {
-        const ret = super.on(ev, handler);
-        if (ev === 'data') {
-            this[DISCARDED] = false;
-            this[DATALISTENERS]++;
-            if (!this[PIPES].length && !this[FLOWING]) {
-                this[RESUME]();
-            }
-        }
-        else if (ev === 'readable' && this[BUFFERLENGTH] !== 0) {
-            super.emit('readable');
-        }
-        else if (isEndish(ev) && this[EMITTED_END]) {
-            super.emit(ev);
-            this.removeAllListeners(ev);
-        }
-        else if (ev === 'error' && this[EMITTED_ERROR]) {
-            const h = handler;
-            if (this[ASYNC])
-                defer(() => h.call(this, this[EMITTED_ERROR]));
-            else
-                h.call(this, this[EMITTED_ERROR]);
-        }
-        return ret;
-    }
-    /**
-     * Alias for {@link Minipass#off}
-     */
-    removeListener(ev, handler) {
-        return this.off(ev, handler);
-    }
-    /**
-     * Mostly identical to `EventEmitter.off`
-     *
-     * If a 'data' event handler is removed, and it was the last consumer
-     * (ie, there are no pipe destinations or other 'data' event listeners),
-     * then the flow of data will stop until there is another consumer or
-     * {@link Minipass#resume} is explicitly called.
-     */
-    off(ev, handler) {
-        const ret = super.off(ev, handler);
-        // if we previously had listeners, and now we don't, and we don't
-        // have any pipes, then stop the flow, unless it's been explicitly
-        // put in a discarded flowing state via stream.resume().
-        if (ev === 'data') {
-            this[DATALISTENERS] = this.listeners('data').length;
-            if (this[DATALISTENERS] === 0 &&
-                !this[DISCARDED] &&
-                !this[PIPES].length) {
-                this[FLOWING] = false;
-            }
-        }
-        return ret;
-    }
-    /**
-     * Mostly identical to `EventEmitter.removeAllListeners`
-     *
-     * If all 'data' event handlers are removed, and they were the last consumer
-     * (ie, there are no pipe destinations), then the flow of data will stop
-     * until there is another consumer or {@link Minipass#resume} is explicitly
-     * called.
-     */
-    removeAllListeners(ev) {
-        const ret = super.removeAllListeners(ev);
-        if (ev === 'data' || ev === undefined) {
-            this[DATALISTENERS] = 0;
-            if (!this[DISCARDED] && !this[PIPES].length) {
-                this[FLOWING] = false;
-            }
-        }
-        return ret;
-    }
-    /**
-     * true if the 'end' event has been emitted
-     */
-    get emittedEnd() {
-        return this[EMITTED_END];
-    }
-    [MAYBE_EMIT_END]() {
-        if (!this[EMITTING_END] &&
-            !this[EMITTED_END] &&
-            !this[DESTROYED] &&
-            this[BUFFER].length === 0 &&
-            this[EOF]) {
-            this[EMITTING_END] = true;
-            this.emit('end');
-            this.emit('prefinish');
-            this.emit('finish');
-            if (this[CLOSED])
-                this.emit('close');
-            this[EMITTING_END] = false;
-        }
-    }
-    /**
-     * Mostly identical to `EventEmitter.emit`, with the following
-     * behavior differences to prevent data loss and unnecessary hangs:
-     *
-     * If the stream has been destroyed, and the event is something other
-     * than 'close' or 'error', then `false` is returned and no handlers
-     * are called.
-     *
-     * If the event is 'end', and has already been emitted, then the event
-     * is ignored. If the stream is in a paused or non-flowing state, then
-     * the event will be deferred until data flow resumes. If the stream is
-     * async, then handlers will be called on the next tick rather than
-     * immediately.
-     *
-     * If the event is 'close', and 'end' has not yet been emitted, then
-     * the event will be deferred until after 'end' is emitted.
-     *
-     * If the event is 'error', and an AbortSignal was provided for the stream,
-     * and there are no listeners, then the event is ignored, matching the
-     * behavior of node core streams in the presense of an AbortSignal.
-     *
-     * If the event is 'finish' or 'prefinish', then all listeners will be
-     * removed after emitting the event, to prevent double-firing.
-     */
-    emit(ev, ...args) {
-        const data = args[0];
-        // error and close are only events allowed after calling destroy()
-        if (ev !== 'error' &&
-            ev !== 'close' &&
-            ev !== DESTROYED &&
-            this[DESTROYED]) {
-            return false;
-        }
-        else if (ev === 'data') {
-            return !this[OBJECTMODE] && !data
-                ? false
-                : this[ASYNC]
-                    ? (defer(() => this[EMITDATA](data)), true)
-                    : this[EMITDATA](data);
-        }
-        else if (ev === 'end') {
-            return this[EMITEND]();
-        }
-        else if (ev === 'close') {
-            this[CLOSED] = true;
-            // don't emit close before 'end' and 'finish'
-            if (!this[EMITTED_END] && !this[DESTROYED])
-                return false;
-            const ret = super.emit('close');
-            this.removeAllListeners('close');
-            return ret;
-        }
-        else if (ev === 'error') {
-            this[EMITTED_ERROR] = data;
-            super.emit(ERROR, data);
-            const ret = !this[SIGNAL] || this.listeners('error').length
-                ? super.emit('error', data)
-                : false;
-            this[MAYBE_EMIT_END]();
-            return ret;
-        }
-        else if (ev === 'resume') {
-            const ret = super.emit('resume');
-            this[MAYBE_EMIT_END]();
-            return ret;
-        }
-        else if (ev === 'finish' || ev === 'prefinish') {
-            const ret = super.emit(ev);
-            this.removeAllListeners(ev);
-            return ret;
-        }
-        // Some other unknown event
-        const ret = super.emit(ev, ...args);
-        this[MAYBE_EMIT_END]();
-        return ret;
-    }
-    [EMITDATA](data) {
-        for (const p of this[PIPES]) {
-            if (p.dest.write(data) === false)
-                this.pause();
-        }
-        const ret = this[DISCARDED] ? false : super.emit('data', data);
-        this[MAYBE_EMIT_END]();
-        return ret;
-    }
-    [EMITEND]() {
-        if (this[EMITTED_END])
-            return false;
-        this[EMITTED_END] = true;
-        this.readable = false;
-        return this[ASYNC]
-            ? (defer(() => this[EMITEND2]()), true)
-            : this[EMITEND2]();
-    }
-    [EMITEND2]() {
-        if (this[DECODER]) {
-            const data = this[DECODER].end();
-            if (data) {
-                for (const p of this[PIPES]) {
-                    p.dest.write(data);
-                }
-                if (!this[DISCARDED])
-                    super.emit('data', data);
-            }
-        }
-        for (const p of this[PIPES]) {
-            p.end();
-        }
-        const ret = super.emit('end');
-        this.removeAllListeners('end');
-        return ret;
-    }
-    /**
-     * Return a Promise that resolves to an array of all emitted data once
-     * the stream ends.
-     */
-    async collect() {
-        const buf = Object.assign([], {
-            dataLength: 0,
-        });
-        if (!this[OBJECTMODE])
-            buf.dataLength = 0;
-        // set the promise first, in case an error is raised
-        // by triggering the flow here.
-        const p = this.promise();
-        this.on('data', c => {
-            buf.push(c);
-            if (!this[OBJECTMODE])
-                buf.dataLength += c.length;
-        });
-        await p;
-        return buf;
-    }
-    /**
-     * Return a Promise that resolves to the concatenation of all emitted data
-     * once the stream ends.
-     *
-     * Not allowed on objectMode streams.
-     */
-    async concat() {
-        if (this[OBJECTMODE]) {
-            throw new Error('cannot concat in objectMode');
-        }
-        const buf = await this.collect();
-        return (this[ENCODING]
-            ? buf.join('')
-            : Buffer.concat(buf, buf.dataLength));
-    }
-    /**
-     * Return a void Promise that resolves once the stream ends.
-     */
-    async promise() {
-        return new Promise((resolve, reject) => {
-            this.on(DESTROYED, () => reject(new Error('stream destroyed')));
-            this.on('error', er => reject(er));
-            this.on('end', () => resolve());
-        });
-    }
-    /**
-     * Asynchronous `for await of` iteration.
-     *
-     * This will continue emitting all chunks until the stream terminates.
-     */
-    [Symbol.asyncIterator]() {
-        // set this up front, in case the consumer doesn't call next()
-        // right away.
-        this[DISCARDED] = false;
-        let stopped = false;
-        const stop = async () => {
-            this.pause();
-            stopped = true;
-            return { value: undefined, done: true };
-        };
-        const next = () => {
-            if (stopped)
-                return stop();
-            const res = this.read();
-            if (res !== null)
-                return Promise.resolve({ done: false, value: res });
-            if (this[EOF])
-                return stop();
-            let resolve;
-            let reject;
-            const onerr = (er) => {
-                this.off('data', ondata);
-                this.off('end', onend);
-                this.off(DESTROYED, ondestroy);
-                stop();
-                reject(er);
-            };
-            const ondata = (value) => {
-                this.off('error', onerr);
-                this.off('end', onend);
-                this.off(DESTROYED, ondestroy);
-                this.pause();
-                resolve({ value, done: !!this[EOF] });
-            };
-            const onend = () => {
-                this.off('error', onerr);
-                this.off('data', ondata);
-                this.off(DESTROYED, ondestroy);
-                stop();
-                resolve({ done: true, value: undefined });
-            };
-            const ondestroy = () => onerr(new Error('stream destroyed'));
-            return new Promise((res, rej) => {
-                reject = rej;
-                resolve = res;
-                this.once(DESTROYED, ondestroy);
-                this.once('error', onerr);
-                this.once('end', onend);
-                this.once('data', ondata);
-            });
-        };
-        return {
-            next,
-            throw: stop,
-            return: stop,
-            [Symbol.asyncIterator]() {
-                return this;
-            },
-        };
-    }
-    /**
-     * Synchronous `for of` iteration.
-     *
-     * The iteration will terminate when the internal buffer runs out, even
-     * if the stream has not yet terminated.
-     */
-    [Symbol.iterator]() {
-        // set this up front, in case the consumer doesn't call next()
-        // right away.
-        this[DISCARDED] = false;
-        let stopped = false;
-        const stop = () => {
-            this.pause();
-            this.off(ERROR, stop);
-            this.off(DESTROYED, stop);
-            this.off('end', stop);
-            stopped = true;
-            return { done: true, value: undefined };
-        };
-        const next = () => {
-            if (stopped)
-                return stop();
-            const value = this.read();
-            return value === null ? stop() : { done: false, value };
-        };
-        this.once('end', stop);
-        this.once(ERROR, stop);
-        this.once(DESTROYED, stop);
-        return {
-            next,
-            throw: stop,
-            return: stop,
-            [Symbol.iterator]() {
-                return this;
-            },
-        };
-    }
-    /**
-     * Destroy a stream, preventing it from being used for any further purpose.
-     *
-     * If the stream has a `close()` method, then it will be called on
-     * destruction.
-     *
-     * After destruction, any attempt to write data, read data, or emit most
-     * events will be ignored.
-     *
-     * If an error argument is provided, then it will be emitted in an
-     * 'error' event.
-     */
-    destroy(er) {
-        if (this[DESTROYED]) {
-            if (er)
-                this.emit('error', er);
-            else
-                this.emit(DESTROYED);
-            return this;
-        }
-        this[DESTROYED] = true;
-        this[DISCARDED] = true;
-        // throw away all buffered data, it's never coming out
-        this[BUFFER].length = 0;
-        this[BUFFERLENGTH] = 0;
-        const wc = this;
-        if (typeof wc.close === 'function' && !this[CLOSED])
-            wc.close();
-        if (er)
-            this.emit('error', er);
-        // if no error to emit, still reject pending promises
-        else
-            this.emit(DESTROYED);
-        return this;
-    }
-    /**
-     * Alias for {@link isStream}
-     *
-     * Former export location, maintained for backwards compatibility.
-     *
-     * @deprecated
-     */
-    static get isStream() {
-        return exports.isStream;
-    }
-}
-exports.Minipass = Minipass;
-//# sourceMappingURL=index.js.map
-
-/***/ }),
-
-/***/ 6577:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
-
-"use strict";
-
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.PathScurry = exports.Path = exports.PathScurryDarwin = exports.PathScurryPosix = exports.PathScurryWin32 = exports.PathScurryBase = exports.PathPosix = exports.PathWin32 = exports.PathBase = exports.ChildrenCache = exports.ResolveCache = void 0;
-const lru_cache_1 = __nccwpck_require__(897);
-const node_path_1 = __nccwpck_require__(6760);
-const node_url_1 = __nccwpck_require__(3136);
-const fs_1 = __nccwpck_require__(9896);
-const actualFS = __importStar(__nccwpck_require__(3024));
-const realpathSync = fs_1.realpathSync.native;
-// TODO: test perf of fs/promises realpath vs realpathCB,
-// since the promises one uses realpath.native
-const promises_1 = __nccwpck_require__(1455);
-const minipass_1 = __nccwpck_require__(8275);
-const defaultFS = {
-    lstatSync: fs_1.lstatSync,
-    readdir: fs_1.readdir,
-    readdirSync: fs_1.readdirSync,
-    readlinkSync: fs_1.readlinkSync,
-    realpathSync,
-    promises: {
-        lstat: promises_1.lstat,
-        readdir: promises_1.readdir,
-        readlink: promises_1.readlink,
-        realpath: promises_1.realpath,
-    },
-};
-// if they just gave us require('fs') then use our default
-const fsFromOption = (fsOption) => !fsOption || fsOption === defaultFS || fsOption === actualFS ?
-    defaultFS
-    : {
-        ...defaultFS,
-        ...fsOption,
-        promises: {
-            ...defaultFS.promises,
-            ...(fsOption.promises || {}),
-        },
-    };
-// turn something like //?/c:/ into c:\
-const uncDriveRegexp = /^\\\\\?\\([a-z]:)\\?$/i;
-const uncToDrive = (rootPath) => rootPath.replace(/\//g, '\\').replace(uncDriveRegexp, '$1\\');
-// windows paths are separated by either / or \
-const eitherSep = /[\\\/]/;
-const UNKNOWN = 0; // may not even exist, for all we know
-const IFIFO = 0b0001;
-const IFCHR = 0b0010;
-const IFDIR = 0b0100;
-const IFBLK = 0b0110;
-const IFREG = 0b1000;
-const IFLNK = 0b1010;
-const IFSOCK = 0b1100;
-const IFMT = 0b1111;
-// mask to unset low 4 bits
-const IFMT_UNKNOWN = ~IFMT;
-// set after successfully calling readdir() and getting entries.
-const READDIR_CALLED = 0b0000_0001_0000;
-// set after a successful lstat()
-const LSTAT_CALLED = 0b0000_0010_0000;
-// set if an entry (or one of its parents) is definitely not a dir
-const ENOTDIR = 0b0000_0100_0000;
-// set if an entry (or one of its parents) does not exist
-// (can also be set on lstat errors like EACCES or ENAMETOOLONG)
-const ENOENT = 0b0000_1000_0000;
-// cannot have child entries -- also verify &IFMT is either IFDIR or IFLNK
-// set if we fail to readlink
-const ENOREADLINK = 0b0001_0000_0000;
-// set if we know realpath() will fail
-const ENOREALPATH = 0b0010_0000_0000;
-const ENOCHILD = ENOTDIR | ENOENT | ENOREALPATH;
-const TYPEMASK = 0b0011_1111_1111;
-const entToType = (s) => s.isFile() ? IFREG
-    : s.isDirectory() ? IFDIR
-        : s.isSymbolicLink() ? IFLNK
-            : s.isCharacterDevice() ? IFCHR
-                : s.isBlockDevice() ? IFBLK
-                    : s.isSocket() ? IFSOCK
-                        : s.isFIFO() ? IFIFO
-                            : UNKNOWN;
-// normalize unicode path names
-const normalizeCache = new Map();
-const normalize = (s) => {
-    const c = normalizeCache.get(s);
-    if (c)
-        return c;
-    const n = s.normalize('NFKD');
-    normalizeCache.set(s, n);
-    return n;
-};
-const normalizeNocaseCache = new Map();
-const normalizeNocase = (s) => {
-    const c = normalizeNocaseCache.get(s);
-    if (c)
-        return c;
-    const n = normalize(s.toLowerCase());
-    normalizeNocaseCache.set(s, n);
-    return n;
-};
-/**
- * An LRUCache for storing resolved path strings or Path objects.
- * @internal
- */
-class ResolveCache extends lru_cache_1.LRUCache {
-    constructor() {
-        super({ max: 256 });
-    }
-}
-exports.ResolveCache = ResolveCache;
-// In order to prevent blowing out the js heap by allocating hundreds of
-// thousands of Path entries when walking extremely large trees, the "children"
-// in this tree are represented by storing an array of Path entries in an
-// LRUCache, indexed by the parent.  At any time, Path.children() may return an
-// empty array, indicating that it doesn't know about any of its children, and
-// thus has to rebuild that cache.  This is fine, it just means that we don't
-// benefit as much from having the cached entries, but huge directory walks
-// don't blow out the stack, and smaller ones are still as fast as possible.
-//
-//It does impose some complexity when building up the readdir data, because we
-//need to pass a reference to the children array that we started with.
-/**
- * an LRUCache for storing child entries.
- * @internal
- */
-class ChildrenCache extends lru_cache_1.LRUCache {
-    constructor(maxSize = 16 * 1024) {
-        super({
-            maxSize,
-            // parent + children
-            sizeCalculation: a => a.length + 1,
-        });
-    }
-}
-exports.ChildrenCache = ChildrenCache;
-const setAsCwd = Symbol('PathScurry setAsCwd');
-/**
- * Path objects are sort of like a super-powered
- * {@link https://nodejs.org/docs/latest/api/fs.html#class-fsdirent fs.Dirent}
- *
- * Each one represents a single filesystem entry on disk, which may or may not
- * exist. It includes methods for reading various types of information via
- * lstat, readlink, and readdir, and caches all information to the greatest
- * degree possible.
- *
- * Note that fs operations that would normally throw will instead return an
- * "empty" value. This is in order to prevent excessive overhead from error
- * stack traces.
- */
-class PathBase {
-    /**
-     * the basename of this path
-     *
-     * **Important**: *always* test the path name against any test string
-     * usingthe {@link isNamed} method, and not by directly comparing this
-     * string. Otherwise, unicode path strings that the system sees as identical
-     * will not be properly treated as the same path, leading to incorrect
-     * behavior and possible security issues.
-     */
-    name;
-    /**
-     * the Path entry corresponding to the path root.
-     *
-     * @internal
-     */
-    root;
-    /**
-     * All roots found within the current PathScurry family
-     *
-     * @internal
-     */
-    roots;
-    /**
-     * a reference to the parent path, or undefined in the case of root entries
-     *
-     * @internal
-     */
-    parent;
-    /**
-     * boolean indicating whether paths are compared case-insensitively
-     * @internal
-     */
-    nocase;
-    /**
-     * boolean indicating that this path is the current working directory
-     * of the PathScurry collection that contains it.
-     */
-    isCWD = false;
-    // potential default fs override
-    #fs;
-    // Stats fields
-    #dev;
-    get dev() {
-        return this.#dev;
-    }
-    #mode;
-    get mode() {
-        return this.#mode;
-    }
-    #nlink;
-    get nlink() {
-        return this.#nlink;
-    }
-    #uid;
-    get uid() {
-        return this.#uid;
-    }
-    #gid;
-    get gid() {
-        return this.#gid;
-    }
-    #rdev;
-    get rdev() {
-        return this.#rdev;
-    }
-    #blksize;
-    get blksize() {
-        return this.#blksize;
-    }
-    #ino;
-    get ino() {
-        return this.#ino;
-    }
-    #size;
-    get size() {
-        return this.#size;
-    }
-    #blocks;
-    get blocks() {
-        return this.#blocks;
-    }
-    #atimeMs;
-    get atimeMs() {
-        return this.#atimeMs;
-    }
-    #mtimeMs;
-    get mtimeMs() {
-        return this.#mtimeMs;
-    }
-    #ctimeMs;
-    get ctimeMs() {
-        return this.#ctimeMs;
-    }
-    #birthtimeMs;
-    get birthtimeMs() {
-        return this.#birthtimeMs;
-    }
-    #atime;
-    get atime() {
-        return this.#atime;
-    }
-    #mtime;
-    get mtime() {
-        return this.#mtime;
-    }
-    #ctime;
-    get ctime() {
-        return this.#ctime;
-    }
-    #birthtime;
-    get birthtime() {
-        return this.#birthtime;
-    }
-    #matchName;
-    #depth;
-    #fullpath;
-    #fullpathPosix;
-    #relative;
-    #relativePosix;
-    #type;
-    #children;
-    #linkTarget;
-    #realpath;
-    /**
-     * This property is for compatibility with the Dirent class as of
-     * Node v20, where Dirent['parentPath'] refers to the path of the
-     * directory that was passed to readdir. For root entries, it's the path
-     * to the entry itself.
-     */
-    get parentPath() {
-        return (this.parent || this).fullpath();
-    }
-    /**
-     * Deprecated alias for Dirent['parentPath'] Somewhat counterintuitively,
-     * this property refers to the *parent* path, not the path object itself.
-     *
-     * @deprecated
-     */
-    get path() {
-        return this.parentPath;
-    }
-    /**
-     * Do not create new Path objects directly.  They should always be accessed
-     * via the PathScurry class or other methods on the Path class.
-     *
-     * @internal
-     */
-    constructor(name, type = UNKNOWN, root, roots, nocase, children, opts) {
-        this.name = name;
-        this.#matchName = nocase ? normalizeNocase(name) : normalize(name);
-        this.#type = type & TYPEMASK;
-        this.nocase = nocase;
-        this.roots = roots;
-        this.root = root || this;
-        this.#children = children;
-        this.#fullpath = opts.fullpath;
-        this.#relative = opts.relative;
-        this.#relativePosix = opts.relativePosix;
-        this.parent = opts.parent;
-        if (this.parent) {
-            this.#fs = this.parent.#fs;
-        }
-        else {
-            this.#fs = fsFromOption(opts.fs);
-        }
-    }
-    /**
-     * Returns the depth of the Path object from its root.
-     *
-     * For example, a path at `/foo/bar` would have a depth of 2.
-     */
-    depth() {
-        if (this.#depth !== undefined)
-            return this.#depth;
-        if (!this.parent)
-            return (this.#depth = 0);
-        return (this.#depth = this.parent.depth() + 1);
-    }
-    /**
-     * @internal
-     */
-    childrenCache() {
-        return this.#children;
-    }
-    /**
-     * Get the Path object referenced by the string path, resolved from this Path
-     */
-    resolve(path) {
-        if (!path) {
-            return this;
-        }
-        const rootPath = this.getRootString(path);
-        const dir = path.substring(rootPath.length);
-        const dirParts = dir.split(this.splitSep);
-        const result = rootPath ?
-            this.getRoot(rootPath).#resolveParts(dirParts)
-            : this.#resolveParts(dirParts);
-        return result;
-    }
-    #resolveParts(dirParts) {
-        let p = this;
-        for (const part of dirParts) {
-            p = p.child(part);
-        }
-        return p;
-    }
-    /**
-     * Returns the cached children Path objects, if still available.  If they
-     * have fallen out of the cache, then returns an empty array, and resets the
-     * READDIR_CALLED bit, so that future calls to readdir() will require an fs
-     * lookup.
-     *
-     * @internal
-     */
-    children() {
-        const cached = this.#children.get(this);
-        if (cached) {
-            return cached;
-        }
-        const children = Object.assign([], { provisional: 0 });
-        this.#children.set(this, children);
-        this.#type &= ~READDIR_CALLED;
-        return children;
-    }
-    /**
-     * Resolves a path portion and returns or creates the child Path.
-     *
-     * Returns `this` if pathPart is `''` or `'.'`, or `parent` if pathPart is
-     * `'..'`.
-     *
-     * This should not be called directly.  If `pathPart` contains any path
-     * separators, it will lead to unsafe undefined behavior.
-     *
-     * Use `Path.resolve()` instead.
-     *
-     * @internal
-     */
-    child(pathPart, opts) {
-        if (pathPart === '' || pathPart === '.') {
-            return this;
-        }
-        if (pathPart === '..') {
-            return this.parent || this;
-        }
-        // find the child
-        const children = this.children();
-        const name = this.nocase ? normalizeNocase(pathPart) : normalize(pathPart);
-        for (const p of children) {
-            if (p.#matchName === name) {
-                return p;
-            }
-        }
-        // didn't find it, create provisional child, since it might not
-        // actually exist.  If we know the parent isn't a dir, then
-        // in fact it CAN'T exist.
-        const s = this.parent ? this.sep : '';
-        const fullpath = this.#fullpath ? this.#fullpath + s + pathPart : undefined;
-        const pchild = this.newChild(pathPart, UNKNOWN, {
-            ...opts,
-            parent: this,
-            fullpath,
-        });
-        if (!this.canReaddir()) {
-            pchild.#type |= ENOENT;
-        }
-        // don't have to update provisional, because if we have real children,
-        // then provisional is set to children.length, otherwise a lower number
-        children.push(pchild);
-        return pchild;
-    }
-    /**
-     * The relative path from the cwd. If it does not share an ancestor with
-     * the cwd, then this ends up being equivalent to the fullpath()
-     */
-    relative() {
-        if (this.isCWD)
-            return '';
-        if (this.#relative !== undefined) {
-            return this.#relative;
-        }
-        const name = this.name;
-        const p = this.parent;
-        if (!p) {
-            return (this.#relative = this.name);
-        }
-        const pv = p.relative();
-        return pv + (!pv || !p.parent ? '' : this.sep) + name;
-    }
-    /**
-     * The relative path from the cwd, using / as the path separator.
-     * If it does not share an ancestor with
-     * the cwd, then this ends up being equivalent to the fullpathPosix()
-     * On posix systems, this is identical to relative().
-     */
-    relativePosix() {
-        if (this.sep === '/')
-            return this.relative();
-        if (this.isCWD)
-            return '';
-        if (this.#relativePosix !== undefined)
-            return this.#relativePosix;
-        const name = this.name;
-        const p = this.parent;
-        if (!p) {
-            return (this.#relativePosix = this.fullpathPosix());
-        }
-        const pv = p.relativePosix();
-        return pv + (!pv || !p.parent ? '' : '/') + name;
-    }
-    /**
-     * The fully resolved path string for this Path entry
-     */
-    fullpath() {
-        if (this.#fullpath !== undefined) {
-            return this.#fullpath;
-        }
-        const name = this.name;
-        const p = this.parent;
-        if (!p) {
-            return (this.#fullpath = this.name);
-        }
-        const pv = p.fullpath();
-        const fp = pv + (!p.parent ? '' : this.sep) + name;
-        return (this.#fullpath = fp);
-    }
-    /**
-     * On platforms other than windows, this is identical to fullpath.
-     *
-     * On windows, this is overridden to return the forward-slash form of the
-     * full UNC path.
-     */
-    fullpathPosix() {
-        if (this.#fullpathPosix !== undefined)
-            return this.#fullpathPosix;
-        if (this.sep === '/')
-            return (this.#fullpathPosix = this.fullpath());
-        if (!this.parent) {
-            const p = this.fullpath().replace(/\\/g, '/');
-            if (/^[a-z]:\//i.test(p)) {
-                return (this.#fullpathPosix = `//?/${p}`);
-            }
-            else {
-                return (this.#fullpathPosix = p);
-            }
-        }
-        const p = this.parent;
-        const pfpp = p.fullpathPosix();
-        const fpp = pfpp + (!pfpp || !p.parent ? '' : '/') + this.name;
-        return (this.#fullpathPosix = fpp);
-    }
-    /**
-     * Is the Path of an unknown type?
-     *
-     * Note that we might know *something* about it if there has been a previous
-     * filesystem operation, for example that it does not exist, or is not a
-     * link, or whether it has child entries.
-     */
-    isUnknown() {
-        return (this.#type & IFMT) === UNKNOWN;
-    }
-    isType(type) {
-        return this[`is${type}`]();
-    }
-    getType() {
-        return (this.isUnknown() ? 'Unknown'
-            : this.isDirectory() ? 'Directory'
-                : this.isFile() ? 'File'
-                    : this.isSymbolicLink() ? 'SymbolicLink'
-                        : this.isFIFO() ? 'FIFO'
-                            : this.isCharacterDevice() ? 'CharacterDevice'
-                                : this.isBlockDevice() ? 'BlockDevice'
-                                    : /* c8 ignore start */ this.isSocket() ? 'Socket'
-                                        : 'Unknown');
-        /* c8 ignore stop */
-    }
-    /**
-     * Is the Path a regular file?
-     */
-    isFile() {
-        return (this.#type & IFMT) === IFREG;
-    }
-    /**
-     * Is the Path a directory?
-     */
-    isDirectory() {
-        return (this.#type & IFMT) === IFDIR;
-    }
-    /**
-     * Is the path a character device?
-     */
-    isCharacterDevice() {
-        return (this.#type & IFMT) === IFCHR;
-    }
-    /**
-     * Is the path a block device?
-     */
-    isBlockDevice() {
-        return (this.#type & IFMT) === IFBLK;
-    }
-    /**
-     * Is the path a FIFO pipe?
-     */
-    isFIFO() {
-        return (this.#type & IFMT) === IFIFO;
-    }
-    /**
-     * Is the path a socket?
-     */
-    isSocket() {
-        return (this.#type & IFMT) === IFSOCK;
-    }
-    /**
-     * Is the path a symbolic link?
-     */
-    isSymbolicLink() {
-        return (this.#type & IFLNK) === IFLNK;
-    }
-    /**
-     * Return the entry if it has been subject of a successful lstat, or
-     * undefined otherwise.
-     *
-     * Does not read the filesystem, so an undefined result *could* simply
-     * mean that we haven't called lstat on it.
-     */
-    lstatCached() {
-        return this.#type & LSTAT_CALLED ? this : undefined;
-    }
-    /**
-     * Return the cached link target if the entry has been the subject of a
-     * successful readlink, or undefined otherwise.
-     *
-     * Does not read the filesystem, so an undefined result *could* just mean we
-     * don't have any cached data. Only use it if you are very sure that a
-     * readlink() has been called at some point.
-     */
-    readlinkCached() {
-        return this.#linkTarget;
-    }
-    /**
-     * Returns the cached realpath target if the entry has been the subject
-     * of a successful realpath, or undefined otherwise.
-     *
-     * Does not read the filesystem, so an undefined result *could* just mean we
-     * don't have any cached data. Only use it if you are very sure that a
-     * realpath() has been called at some point.
-     */
-    realpathCached() {
-        return this.#realpath;
-    }
-    /**
-     * Returns the cached child Path entries array if the entry has been the
-     * subject of a successful readdir(), or [] otherwise.
-     *
-     * Does not read the filesystem, so an empty array *could* just mean we
-     * don't have any cached data. Only use it if you are very sure that a
-     * readdir() has been called recently enough to still be valid.
-     */
-    readdirCached() {
-        const children = this.children();
-        return children.slice(0, children.provisional);
-    }
-    /**
-     * Return true if it's worth trying to readlink.  Ie, we don't (yet) have
-     * any indication that readlink will definitely fail.
-     *
-     * Returns false if the path is known to not be a symlink, if a previous
-     * readlink failed, or if the entry does not exist.
-     */
-    canReadlink() {
-        if (this.#linkTarget)
-            return true;
-        if (!this.parent)
-            return false;
-        // cases where it cannot possibly succeed
-        const ifmt = this.#type & IFMT;
-        return !((ifmt !== UNKNOWN && ifmt !== IFLNK) ||
-            this.#type & ENOREADLINK ||
-            this.#type & ENOENT);
-    }
-    /**
-     * Return true if readdir has previously been successfully called on this
-     * path, indicating that cachedReaddir() is likely valid.
-     */
-    calledReaddir() {
-        return !!(this.#type & READDIR_CALLED);
-    }
-    /**
-     * Returns true if the path is known to not exist. That is, a previous lstat
-     * or readdir failed to verify its existence when that would have been
-     * expected, or a parent entry was marked either enoent or enotdir.
-     */
-    isENOENT() {
-        return !!(this.#type & ENOENT);
-    }
-    /**
-     * Return true if the path is a match for the given path name.  This handles
-     * case sensitivity and unicode normalization.
-     *
-     * Note: even on case-sensitive systems, it is **not** safe to test the
-     * equality of the `.name` property to determine whether a given pathname
-     * matches, due to unicode normalization mismatches.
-     *
-     * Always use this method instead of testing the `path.name` property
-     * directly.
-     */
-    isNamed(n) {
-        return !this.nocase ?
-            this.#matchName === normalize(n)
-            : this.#matchName === normalizeNocase(n);
-    }
-    /**
-     * Return the Path object corresponding to the target of a symbolic link.
-     *
-     * If the Path is not a symbolic link, or if the readlink call fails for any
-     * reason, `undefined` is returned.
-     *
-     * Result is cached, and thus may be outdated if the filesystem is mutated.
-     */
-    async readlink() {
-        const target = this.#linkTarget;
-        if (target) {
-            return target;
-        }
-        if (!this.canReadlink()) {
-            return undefined;
-        }
-        /* c8 ignore start */
-        // already covered by the canReadlink test, here for ts grumples
-        if (!this.parent) {
-            return undefined;
-        }
-        /* c8 ignore stop */
-        try {
-            const read = await this.#fs.promises.readlink(this.fullpath());
-            const linkTarget = (await this.parent.realpath())?.resolve(read);
-            if (linkTarget) {
-                return (this.#linkTarget = linkTarget);
-            }
-        }
-        catch (er) {
-            this.#readlinkFail(er.code);
-            return undefined;
-        }
-    }
-    /**
-     * Synchronous {@link PathBase.readlink}
-     */
-    readlinkSync() {
-        const target = this.#linkTarget;
-        if (target) {
-            return target;
-        }
-        if (!this.canReadlink()) {
-            return undefined;
-        }
-        /* c8 ignore start */
-        // already covered by the canReadlink test, here for ts grumples
-        if (!this.parent) {
-            return undefined;
-        }
-        /* c8 ignore stop */
-        try {
-            const read = this.#fs.readlinkSync(this.fullpath());
-            const linkTarget = this.parent.realpathSync()?.resolve(read);
-            if (linkTarget) {
-                return (this.#linkTarget = linkTarget);
-            }
-        }
-        catch (er) {
-            this.#readlinkFail(er.code);
-            return undefined;
-        }
-    }
-    #readdirSuccess(children) {
-        // succeeded, mark readdir called bit
-        this.#type |= READDIR_CALLED;
-        // mark all remaining provisional children as ENOENT
-        for (let p = children.provisional; p < children.length; p++) {
-            const c = children[p];
-            if (c)
-                c.#markENOENT();
-        }
-    }
-    #markENOENT() {
-        // mark as UNKNOWN and ENOENT
-        if (this.#type & ENOENT)
-            return;
-        this.#type = (this.#type | ENOENT) & IFMT_UNKNOWN;
-        this.#markChildrenENOENT();
-    }
-    #markChildrenENOENT() {
-        // all children are provisional and do not exist
-        const children = this.children();
-        children.provisional = 0;
-        for (const p of children) {
-            p.#markENOENT();
-        }
-    }
-    #markENOREALPATH() {
-        this.#type |= ENOREALPATH;
-        this.#markENOTDIR();
-    }
-    // save the information when we know the entry is not a dir
-    #markENOTDIR() {
-        // entry is not a directory, so any children can't exist.
-        // this *should* be impossible, since any children created
-        // after it's been marked ENOTDIR should be marked ENOENT,
-        // so it won't even get to this point.
-        /* c8 ignore start */
-        if (this.#type & ENOTDIR)
-            return;
-        /* c8 ignore stop */
-        let t = this.#type;
-        // this could happen if we stat a dir, then delete it,
-        // then try to read it or one of its children.
-        if ((t & IFMT) === IFDIR)
-            t &= IFMT_UNKNOWN;
-        this.#type = t | ENOTDIR;
-        this.#markChildrenENOENT();
-    }
-    #readdirFail(code = '') {
-        // markENOTDIR and markENOENT also set provisional=0
-        if (code === 'ENOTDIR' || code === 'EPERM') {
-            this.#markENOTDIR();
-        }
-        else if (code === 'ENOENT') {
-            this.#markENOENT();
-        }
-        else {
-            this.children().provisional = 0;
-        }
-    }
-    #lstatFail(code = '') {
-        // Windows just raises ENOENT in this case, disable for win CI
-        /* c8 ignore start */
-        if (code === 'ENOTDIR') {
-            // already know it has a parent by this point
-            const p = this.parent;
-            p.#markENOTDIR();
-        }
-        else if (code === 'ENOENT') {
-            /* c8 ignore stop */
-            this.#markENOENT();
-        }
-    }
-    #readlinkFail(code = '') {
-        let ter = this.#type;
-        ter |= ENOREADLINK;
-        if (code === 'ENOENT')
-            ter |= ENOENT;
-        // windows gets a weird error when you try to readlink a file
-        if (code === 'EINVAL' || code === 'UNKNOWN') {
-            // exists, but not a symlink, we don't know WHAT it is, so remove
-            // all IFMT bits.
-            ter &= IFMT_UNKNOWN;
-        }
-        this.#type = ter;
-        // windows just gets ENOENT in this case.  We do cover the case,
-        // just disabled because it's impossible on Windows CI
-        /* c8 ignore start */
-        if (code === 'ENOTDIR' && this.parent) {
-            this.parent.#markENOTDIR();
-        }
-        /* c8 ignore stop */
-    }
-    #readdirAddChild(e, c) {
-        return (this.#readdirMaybePromoteChild(e, c) ||
-            this.#readdirAddNewChild(e, c));
-    }
-    #readdirAddNewChild(e, c) {
-        // alloc new entry at head, so it's never provisional
-        const type = entToType(e);
-        const child = this.newChild(e.name, type, { parent: this });
-        const ifmt = child.#type & IFMT;
-        if (ifmt !== IFDIR && ifmt !== IFLNK && ifmt !== UNKNOWN) {
-            child.#type |= ENOTDIR;
-        }
-        c.unshift(child);
-        c.provisional++;
-        return child;
-    }
-    #readdirMaybePromoteChild(e, c) {
-        for (let p = c.provisional; p < c.length; p++) {
-            const pchild = c[p];
-            const name = this.nocase ? normalizeNocase(e.name) : normalize(e.name);
-            if (name !== pchild.#matchName) {
-                continue;
-            }
-            return this.#readdirPromoteChild(e, pchild, p, c);
-        }
-    }
-    #readdirPromoteChild(e, p, index, c) {
-        const v = p.name;
-        // retain any other flags, but set ifmt from dirent
-        p.#type = (p.#type & IFMT_UNKNOWN) | entToType(e);
-        // case sensitivity fixing when we learn the true name.
-        if (v !== e.name)
-            p.name = e.name;
-        // just advance provisional index (potentially off the list),
-        // otherwise we have to splice/pop it out and re-insert at head
-        if (index !== c.provisional) {
-            if (index === c.length - 1)
-                c.pop();
-            else
-                c.splice(index, 1);
-            c.unshift(p);
-        }
-        c.provisional++;
-        return p;
-    }
-    /**
-     * Call lstat() on this Path, and update all known information that can be
-     * determined.
-     *
-     * Note that unlike `fs.lstat()`, the returned value does not contain some
-     * information, such as `mode`, `dev`, `nlink`, and `ino`.  If that
-     * information is required, you will need to call `fs.lstat` yourself.
-     *
-     * If the Path refers to a nonexistent file, or if the lstat call fails for
-     * any reason, `undefined` is returned.  Otherwise the updated Path object is
-     * returned.
-     *
-     * Results are cached, and thus may be out of date if the filesystem is
-     * mutated.
-     */
-    async lstat() {
-        if ((this.#type & ENOENT) === 0) {
-            try {
-                this.#applyStat(await this.#fs.promises.lstat(this.fullpath()));
-                return this;
-            }
-            catch (er) {
-                this.#lstatFail(er.code);
-            }
-        }
-    }
-    /**
-     * synchronous {@link PathBase.lstat}
-     */
-    lstatSync() {
-        if ((this.#type & ENOENT) === 0) {
-            try {
-                this.#applyStat(this.#fs.lstatSync(this.fullpath()));
-                return this;
-            }
-            catch (er) {
-                this.#lstatFail(er.code);
-            }
-        }
-    }
-    #applyStat(st) {
-        const { atime, atimeMs, birthtime, birthtimeMs, blksize, blocks, ctime, ctimeMs, dev, gid, ino, mode, mtime, mtimeMs, nlink, rdev, size, uid, } = st;
-        this.#atime = atime;
-        this.#atimeMs = atimeMs;
-        this.#birthtime = birthtime;
-        this.#birthtimeMs = birthtimeMs;
-        this.#blksize = blksize;
-        this.#blocks = blocks;
-        this.#ctime = ctime;
-        this.#ctimeMs = ctimeMs;
-        this.#dev = dev;
-        this.#gid = gid;
-        this.#ino = ino;
-        this.#mode = mode;
-        this.#mtime = mtime;
-        this.#mtimeMs = mtimeMs;
-        this.#nlink = nlink;
-        this.#rdev = rdev;
-        this.#size = size;
-        this.#uid = uid;
-        const ifmt = entToType(st);
-        // retain any other flags, but set the ifmt
-        this.#type = (this.#type & IFMT_UNKNOWN) | ifmt | LSTAT_CALLED;
-        if (ifmt !== UNKNOWN && ifmt !== IFDIR && ifmt !== IFLNK) {
-            this.#type |= ENOTDIR;
-        }
-    }
-    #onReaddirCB = [];
-    #readdirCBInFlight = false;
-    #callOnReaddirCB(children) {
-        this.#readdirCBInFlight = false;
-        const cbs = this.#onReaddirCB.slice();
-        this.#onReaddirCB.length = 0;
-        cbs.forEach(cb => cb(null, children));
-    }
-    /**
-     * Standard node-style callback interface to get list of directory entries.
-     *
-     * If the Path cannot or does not contain any children, then an empty array
-     * is returned.
-     *
-     * Results are cached, and thus may be out of date if the filesystem is
-     * mutated.
-     *
-     * @param cb The callback called with (er, entries).  Note that the `er`
-     * param is somewhat extraneous, as all readdir() errors are handled and
-     * simply result in an empty set of entries being returned.
-     * @param allowZalgo Boolean indicating that immediately known results should
-     * *not* be deferred with `queueMicrotask`. Defaults to `false`. Release
-     * zalgo at your peril, the dark pony lord is devious and unforgiving.
-     */
-    readdirCB(cb, allowZalgo = false) {
-        if (!this.canReaddir()) {
-            if (allowZalgo)
-                cb(null, []);
-            else
-                queueMicrotask(() => cb(null, []));
-            return;
-        }
-        const children = this.children();
-        if (this.calledReaddir()) {
-            const c = children.slice(0, children.provisional);
-            if (allowZalgo)
-                cb(null, c);
-            else
-                queueMicrotask(() => cb(null, c));
-            return;
-        }
-        // don't have to worry about zalgo at this point.
-        this.#onReaddirCB.push(cb);
-        if (this.#readdirCBInFlight) {
-            return;
-        }
-        this.#readdirCBInFlight = true;
-        // else read the directory, fill up children
-        // de-provisionalize any provisional children.
-        const fullpath = this.fullpath();
-        this.#fs.readdir(fullpath, { withFileTypes: true }, (er, entries) => {
-            if (er) {
-                this.#readdirFail(er.code);
-                children.provisional = 0;
-            }
-            else {
-                // if we didn't get an error, we always get entries.
-                //@ts-ignore
-                for (const e of entries) {
-                    this.#readdirAddChild(e, children);
-                }
-                this.#readdirSuccess(children);
-            }
-            this.#callOnReaddirCB(children.slice(0, children.provisional));
-            return;
-        });
-    }
-    #asyncReaddirInFlight;
-    /**
-     * Return an array of known child entries.
-     *
-     * If the Path cannot or does not contain any children, then an empty array
-     * is returned.
-     *
-     * Results are cached, and thus may be out of date if the filesystem is
-     * mutated.
-     */
-    async readdir() {
-        if (!this.canReaddir()) {
-            return [];
-        }
-        const children = this.children();
-        if (this.calledReaddir()) {
-            return children.slice(0, children.provisional);
-        }
-        // else read the directory, fill up children
-        // de-provisionalize any provisional children.
-        const fullpath = this.fullpath();
-        if (this.#asyncReaddirInFlight) {
-            await this.#asyncReaddirInFlight;
-        }
-        else {
-            /* c8 ignore start */
-            let resolve = () => { };
-            /* c8 ignore stop */
-            this.#asyncReaddirInFlight = new Promise(res => (resolve = res));
-            try {
-                for (const e of await this.#fs.promises.readdir(fullpath, {
-                    withFileTypes: true,
-                })) {
-                    this.#readdirAddChild(e, children);
-                }
-                this.#readdirSuccess(children);
-            }
-            catch (er) {
-                this.#readdirFail(er.code);
-                children.provisional = 0;
-            }
-            this.#asyncReaddirInFlight = undefined;
-            resolve();
-        }
-        return children.slice(0, children.provisional);
-    }
-    /**
-     * synchronous {@link PathBase.readdir}
-     */
-    readdirSync() {
-        if (!this.canReaddir()) {
-            return [];
-        }
-        const children = this.children();
-        if (this.calledReaddir()) {
-            return children.slice(0, children.provisional);
-        }
-        // else read the directory, fill up children
-        // de-provisionalize any provisional children.
-        const fullpath = this.fullpath();
-        try {
-            for (const e of this.#fs.readdirSync(fullpath, {
-                withFileTypes: true,
-            })) {
-                this.#readdirAddChild(e, children);
-            }
-            this.#readdirSuccess(children);
-        }
-        catch (er) {
-            this.#readdirFail(er.code);
-            children.provisional = 0;
-        }
-        return children.slice(0, children.provisional);
-    }
-    canReaddir() {
-        if (this.#type & ENOCHILD)
-            return false;
-        const ifmt = IFMT & this.#type;
-        // we always set ENOTDIR when setting IFMT, so should be impossible
-        /* c8 ignore start */
-        if (!(ifmt === UNKNOWN || ifmt === IFDIR || ifmt === IFLNK)) {
-            return false;
-        }
-        /* c8 ignore stop */
-        return true;
-    }
-    shouldWalk(dirs, walkFilter) {
-        return ((this.#type & IFDIR) === IFDIR &&
-            !(this.#type & ENOCHILD) &&
-            !dirs.has(this) &&
-            (!walkFilter || walkFilter(this)));
-    }
-    /**
-     * Return the Path object corresponding to path as resolved
-     * by realpath(3).
-     *
-     * If the realpath call fails for any reason, `undefined` is returned.
-     *
-     * Result is cached, and thus may be outdated if the filesystem is mutated.
-     * On success, returns a Path object.
-     */
-    async realpath() {
-        if (this.#realpath)
-            return this.#realpath;
-        if ((ENOREALPATH | ENOREADLINK | ENOENT) & this.#type)
-            return undefined;
-        try {
-            const rp = await this.#fs.promises.realpath(this.fullpath());
-            return (this.#realpath = this.resolve(rp));
-        }
-        catch (_) {
-            this.#markENOREALPATH();
-        }
-    }
-    /**
-     * Synchronous {@link realpath}
-     */
-    realpathSync() {
-        if (this.#realpath)
-            return this.#realpath;
-        if ((ENOREALPATH | ENOREADLINK | ENOENT) & this.#type)
-            return undefined;
-        try {
-            const rp = this.#fs.realpathSync(this.fullpath());
-            return (this.#realpath = this.resolve(rp));
-        }
-        catch (_) {
-            this.#markENOREALPATH();
-        }
-    }
-    /**
-     * Internal method to mark this Path object as the scurry cwd,
-     * called by {@link PathScurry#chdir}
-     *
-     * @internal
-     */
-    [setAsCwd](oldCwd) {
-        if (oldCwd === this)
-            return;
-        oldCwd.isCWD = false;
-        this.isCWD = true;
-        const changed = new Set([]);
-        let rp = [];
-        let p = this;
-        while (p && p.parent) {
-            changed.add(p);
-            p.#relative = rp.join(this.sep);
-            p.#relativePosix = rp.join('/');
-            p = p.parent;
-            rp.push('..');
-        }
-        // now un-memoize parents of old cwd
-        p = oldCwd;
-        while (p && p.parent && !changed.has(p)) {
-            p.#relative = undefined;
-            p.#relativePosix = undefined;
-            p = p.parent;
-        }
-    }
-}
-exports.PathBase = PathBase;
-/**
- * Path class used on win32 systems
- *
- * Uses `'\\'` as the path separator for returned paths, either `'\\'` or `'/'`
- * as the path separator for parsing paths.
- */
-class PathWin32 extends PathBase {
-    /**
-     * Separator for generating path strings.
-     */
-    sep = '\\';
-    /**
-     * Separator for parsing path strings.
-     */
-    splitSep = eitherSep;
-    /**
-     * Do not create new Path objects directly.  They should always be accessed
-     * via the PathScurry class or other methods on the Path class.
-     *
-     * @internal
-     */
-    constructor(name, type = UNKNOWN, root, roots, nocase, children, opts) {
-        super(name, type, root, roots, nocase, children, opts);
-    }
-    /**
-     * @internal
-     */
-    newChild(name, type = UNKNOWN, opts = {}) {
-        return new PathWin32(name, type, this.root, this.roots, this.nocase, this.childrenCache(), opts);
-    }
-    /**
-     * @internal
-     */
-    getRootString(path) {
-        return node_path_1.win32.parse(path).root;
-    }
-    /**
-     * @internal
-     */
-    getRoot(rootPath) {
-        rootPath = uncToDrive(rootPath.toUpperCase());
-        if (rootPath === this.root.name) {
-            return this.root;
-        }
-        // ok, not that one, check if it matches another we know about
-        for (const [compare, root] of Object.entries(this.roots)) {
-            if (this.sameRoot(rootPath, compare)) {
-                return (this.roots[rootPath] = root);
-            }
-        }
-        // otherwise, have to create a new one.
-        return (this.roots[rootPath] = new PathScurryWin32(rootPath, this).root);
-    }
-    /**
-     * @internal
-     */
-    sameRoot(rootPath, compare = this.root.name) {
-        // windows can (rarely) have case-sensitive filesystem, but
-        // UNC and drive letters are always case-insensitive, and canonically
-        // represented uppercase.
-        rootPath = rootPath
-            .toUpperCase()
-            .replace(/\//g, '\\')
-            .replace(uncDriveRegexp, '$1\\');
-        return rootPath === compare;
-    }
-}
-exports.PathWin32 = PathWin32;
-/**
- * Path class used on all posix systems.
- *
- * Uses `'/'` as the path separator.
- */
-class PathPosix extends PathBase {
-    /**
-     * separator for parsing path strings
-     */
-    splitSep = '/';
-    /**
-     * separator for generating path strings
-     */
-    sep = '/';
-    /**
-     * Do not create new Path objects directly.  They should always be accessed
-     * via the PathScurry class or other methods on the Path class.
-     *
-     * @internal
-     */
-    constructor(name, type = UNKNOWN, root, roots, nocase, children, opts) {
-        super(name, type, root, roots, nocase, children, opts);
-    }
-    /**
-     * @internal
-     */
-    getRootString(path) {
-        return path.startsWith('/') ? '/' : '';
-    }
-    /**
-     * @internal
-     */
-    getRoot(_rootPath) {
-        return this.root;
-    }
-    /**
-     * @internal
-     */
-    newChild(name, type = UNKNOWN, opts = {}) {
-        return new PathPosix(name, type, this.root, this.roots, this.nocase, this.childrenCache(), opts);
-    }
-}
-exports.PathPosix = PathPosix;
-/**
- * The base class for all PathScurry classes, providing the interface for path
- * resolution and filesystem operations.
- *
- * Typically, you should *not* instantiate this class directly, but rather one
- * of the platform-specific classes, or the exported {@link PathScurry} which
- * defaults to the current platform.
- */
-class PathScurryBase {
-    /**
-     * The root Path entry for the current working directory of this Scurry
-     */
-    root;
-    /**
-     * The string path for the root of this Scurry's current working directory
-     */
-    rootPath;
-    /**
-     * A collection of all roots encountered, referenced by rootPath
-     */
-    roots;
-    /**
-     * The Path entry corresponding to this PathScurry's current working directory.
-     */
-    cwd;
-    #resolveCache;
-    #resolvePosixCache;
-    #children;
-    /**
-     * Perform path comparisons case-insensitively.
-     *
-     * Defaults true on Darwin and Windows systems, false elsewhere.
-     */
-    nocase;
-    #fs;
-    /**
-     * This class should not be instantiated directly.
-     *
-     * Use PathScurryWin32, PathScurryDarwin, PathScurryPosix, or PathScurry
-     *
-     * @internal
-     */
-    constructor(cwd = process.cwd(), pathImpl, sep, { nocase, childrenCacheSize = 16 * 1024, fs = defaultFS, } = {}) {
-        this.#fs = fsFromOption(fs);
-        if (cwd instanceof URL || cwd.startsWith('file://')) {
-            cwd = (0, node_url_1.fileURLToPath)(cwd);
-        }
-        // resolve and split root, and then add to the store.
-        // this is the only time we call path.resolve()
-        const cwdPath = pathImpl.resolve(cwd);
-        this.roots = Object.create(null);
-        this.rootPath = this.parseRootPath(cwdPath);
-        this.#resolveCache = new ResolveCache();
-        this.#resolvePosixCache = new ResolveCache();
-        this.#children = new ChildrenCache(childrenCacheSize);
-        const split = cwdPath.substring(this.rootPath.length).split(sep);
-        // resolve('/') leaves '', splits to [''], we don't want that.
-        if (split.length === 1 && !split[0]) {
-            split.pop();
-        }
-        /* c8 ignore start */
-        if (nocase === undefined) {
-            throw new TypeError('must provide nocase setting to PathScurryBase ctor');
-        }
-        /* c8 ignore stop */
-        this.nocase = nocase;
-        this.root = this.newRoot(this.#fs);
-        this.roots[this.rootPath] = this.root;
-        let prev = this.root;
-        let len = split.length - 1;
-        const joinSep = pathImpl.sep;
-        let abs = this.rootPath;
-        let sawFirst = false;
-        for (const part of split) {
-            const l = len--;
-            prev = prev.child(part, {
-                relative: new Array(l).fill('..').join(joinSep),
-                relativePosix: new Array(l).fill('..').join('/'),
-                fullpath: (abs += (sawFirst ? '' : joinSep) + part),
-            });
-            sawFirst = true;
-        }
-        this.cwd = prev;
-    }
-    /**
-     * Get the depth of a provided path, string, or the cwd
-     */
-    depth(path = this.cwd) {
-        if (typeof path === 'string') {
-            path = this.cwd.resolve(path);
-        }
-        return path.depth();
-    }
-    /**
-     * Return the cache of child entries.  Exposed so subclasses can create
-     * child Path objects in a platform-specific way.
-     *
-     * @internal
-     */
-    childrenCache() {
-        return this.#children;
-    }
-    /**
-     * Resolve one or more path strings to a resolved string
-     *
-     * Same interface as require('path').resolve.
-     *
-     * Much faster than path.resolve() when called multiple times for the same
-     * path, because the resolved Path objects are cached.  Much slower
-     * otherwise.
-     */
-    resolve(...paths) {
-        // first figure out the minimum number of paths we have to test
-        // we always start at cwd, but any absolutes will bump the start
-        let r = '';
-        for (let i = paths.length - 1; i >= 0; i--) {
-            const p = paths[i];
-            if (!p || p === '.')
-                continue;
-            r = r ? `${p}/${r}` : p;
-            if (this.isAbsolute(p)) {
-                break;
-            }
-        }
-        const cached = this.#resolveCache.get(r);
-        if (cached !== undefined) {
-            return cached;
-        }
-        const result = this.cwd.resolve(r).fullpath();
-        this.#resolveCache.set(r, result);
-        return result;
-    }
-    /**
-     * Resolve one or more path strings to a resolved string, returning
-     * the posix path.  Identical to .resolve() on posix systems, but on
-     * windows will return a forward-slash separated UNC path.
-     *
-     * Same interface as require('path').resolve.
-     *
-     * Much faster than path.resolve() when called multiple times for the same
-     * path, because the resolved Path objects are cached.  Much slower
-     * otherwise.
-     */
-    resolvePosix(...paths) {
-        // first figure out the minimum number of paths we have to test
-        // we always start at cwd, but any absolutes will bump the start
-        let r = '';
-        for (let i = paths.length - 1; i >= 0; i--) {
-            const p = paths[i];
-            if (!p || p === '.')
-                continue;
-            r = r ? `${p}/${r}` : p;
-            if (this.isAbsolute(p)) {
-                break;
-            }
-        }
-        const cached = this.#resolvePosixCache.get(r);
-        if (cached !== undefined) {
-            return cached;
-        }
-        const result = this.cwd.resolve(r).fullpathPosix();
-        this.#resolvePosixCache.set(r, result);
-        return result;
-    }
-    /**
-     * find the relative path from the cwd to the supplied path string or entry
-     */
-    relative(entry = this.cwd) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        return entry.relative();
-    }
-    /**
-     * find the relative path from the cwd to the supplied path string or
-     * entry, using / as the path delimiter, even on Windows.
-     */
-    relativePosix(entry = this.cwd) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        return entry.relativePosix();
-    }
-    /**
-     * Return the basename for the provided string or Path object
-     */
-    basename(entry = this.cwd) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        return entry.name;
-    }
-    /**
-     * Return the dirname for the provided string or Path object
-     */
-    dirname(entry = this.cwd) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        return (entry.parent || entry).fullpath();
-    }
-    async readdir(entry = this.cwd, opts = {
-        withFileTypes: true,
-    }) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            opts = entry;
-            entry = this.cwd;
-        }
-        const { withFileTypes } = opts;
-        if (!entry.canReaddir()) {
-            return [];
-        }
-        else {
-            const p = await entry.readdir();
-            return withFileTypes ? p : p.map(e => e.name);
-        }
-    }
-    readdirSync(entry = this.cwd, opts = {
-        withFileTypes: true,
-    }) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            opts = entry;
-            entry = this.cwd;
-        }
-        const { withFileTypes = true } = opts;
-        if (!entry.canReaddir()) {
-            return [];
-        }
-        else if (withFileTypes) {
-            return entry.readdirSync();
-        }
-        else {
-            return entry.readdirSync().map(e => e.name);
-        }
-    }
-    /**
-     * Call lstat() on the string or Path object, and update all known
-     * information that can be determined.
-     *
-     * Note that unlike `fs.lstat()`, the returned value does not contain some
-     * information, such as `mode`, `dev`, `nlink`, and `ino`.  If that
-     * information is required, you will need to call `fs.lstat` yourself.
-     *
-     * If the Path refers to a nonexistent file, or if the lstat call fails for
-     * any reason, `undefined` is returned.  Otherwise the updated Path object is
-     * returned.
-     *
-     * Results are cached, and thus may be out of date if the filesystem is
-     * mutated.
-     */
-    async lstat(entry = this.cwd) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        return entry.lstat();
-    }
-    /**
-     * synchronous {@link PathScurryBase.lstat}
-     */
-    lstatSync(entry = this.cwd) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        return entry.lstatSync();
-    }
-    async readlink(entry = this.cwd, { withFileTypes } = {
-        withFileTypes: false,
-    }) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            withFileTypes = entry.withFileTypes;
-            entry = this.cwd;
-        }
-        const e = await entry.readlink();
-        return withFileTypes ? e : e?.fullpath();
-    }
-    readlinkSync(entry = this.cwd, { withFileTypes } = {
-        withFileTypes: false,
-    }) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            withFileTypes = entry.withFileTypes;
-            entry = this.cwd;
-        }
-        const e = entry.readlinkSync();
-        return withFileTypes ? e : e?.fullpath();
-    }
-    async realpath(entry = this.cwd, { withFileTypes } = {
-        withFileTypes: false,
-    }) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            withFileTypes = entry.withFileTypes;
-            entry = this.cwd;
-        }
-        const e = await entry.realpath();
-        return withFileTypes ? e : e?.fullpath();
-    }
-    realpathSync(entry = this.cwd, { withFileTypes } = {
-        withFileTypes: false,
-    }) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            withFileTypes = entry.withFileTypes;
-            entry = this.cwd;
-        }
-        const e = entry.realpathSync();
-        return withFileTypes ? e : e?.fullpath();
-    }
-    async walk(entry = this.cwd, opts = {}) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            opts = entry;
-            entry = this.cwd;
-        }
-        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
-        const results = [];
-        if (!filter || filter(entry)) {
-            results.push(withFileTypes ? entry : entry.fullpath());
-        }
-        const dirs = new Set();
-        const walk = (dir, cb) => {
-            dirs.add(dir);
-            dir.readdirCB((er, entries) => {
-                /* c8 ignore start */
-                if (er) {
-                    return cb(er);
-                }
-                /* c8 ignore stop */
-                let len = entries.length;
-                if (!len)
-                    return cb();
-                const next = () => {
-                    if (--len === 0) {
-                        cb();
-                    }
-                };
-                for (const e of entries) {
-                    if (!filter || filter(e)) {
-                        results.push(withFileTypes ? e : e.fullpath());
-                    }
-                    if (follow && e.isSymbolicLink()) {
-                        e.realpath()
-                            .then(r => (r?.isUnknown() ? r.lstat() : r))
-                            .then(r => r?.shouldWalk(dirs, walkFilter) ? walk(r, next) : next());
-                    }
-                    else {
-                        if (e.shouldWalk(dirs, walkFilter)) {
-                            walk(e, next);
-                        }
-                        else {
-                            next();
-                        }
-                    }
-                }
-            }, true); // zalgooooooo
-        };
-        const start = entry;
-        return new Promise((res, rej) => {
-            walk(start, er => {
-                /* c8 ignore start */
-                if (er)
-                    return rej(er);
-                /* c8 ignore stop */
-                res(results);
-            });
-        });
-    }
-    walkSync(entry = this.cwd, opts = {}) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            opts = entry;
-            entry = this.cwd;
-        }
-        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
-        const results = [];
-        if (!filter || filter(entry)) {
-            results.push(withFileTypes ? entry : entry.fullpath());
-        }
-        const dirs = new Set([entry]);
-        for (const dir of dirs) {
-            const entries = dir.readdirSync();
-            for (const e of entries) {
-                if (!filter || filter(e)) {
-                    results.push(withFileTypes ? e : e.fullpath());
-                }
-                let r = e;
-                if (e.isSymbolicLink()) {
-                    if (!(follow && (r = e.realpathSync())))
-                        continue;
-                    if (r.isUnknown())
-                        r.lstatSync();
-                }
-                if (r.shouldWalk(dirs, walkFilter)) {
-                    dirs.add(r);
-                }
-            }
-        }
-        return results;
-    }
-    /**
-     * Support for `for await`
-     *
-     * Alias for {@link PathScurryBase.iterate}
-     *
-     * Note: As of Node 19, this is very slow, compared to other methods of
-     * walking.  Consider using {@link PathScurryBase.stream} if memory overhead
-     * and backpressure are concerns, or {@link PathScurryBase.walk} if not.
-     */
-    [Symbol.asyncIterator]() {
-        return this.iterate();
-    }
-    iterate(entry = this.cwd, options = {}) {
-        // iterating async over the stream is significantly more performant,
-        // especially in the warm-cache scenario, because it buffers up directory
-        // entries in the background instead of waiting for a yield for each one.
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            options = entry;
-            entry = this.cwd;
-        }
-        return this.stream(entry, options)[Symbol.asyncIterator]();
-    }
-    /**
-     * Iterating over a PathScurry performs a synchronous walk.
-     *
-     * Alias for {@link PathScurryBase.iterateSync}
-     */
-    [Symbol.iterator]() {
-        return this.iterateSync();
-    }
-    *iterateSync(entry = this.cwd, opts = {}) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            opts = entry;
-            entry = this.cwd;
-        }
-        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
-        if (!filter || filter(entry)) {
-            yield withFileTypes ? entry : entry.fullpath();
-        }
-        const dirs = new Set([entry]);
-        for (const dir of dirs) {
-            const entries = dir.readdirSync();
-            for (const e of entries) {
-                if (!filter || filter(e)) {
-                    yield withFileTypes ? e : e.fullpath();
-                }
-                let r = e;
-                if (e.isSymbolicLink()) {
-                    if (!(follow && (r = e.realpathSync())))
-                        continue;
-                    if (r.isUnknown())
-                        r.lstatSync();
-                }
-                if (r.shouldWalk(dirs, walkFilter)) {
-                    dirs.add(r);
-                }
-            }
-        }
-    }
-    stream(entry = this.cwd, opts = {}) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            opts = entry;
-            entry = this.cwd;
-        }
-        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
-        const results = new minipass_1.Minipass({ objectMode: true });
-        if (!filter || filter(entry)) {
-            results.write(withFileTypes ? entry : entry.fullpath());
-        }
-        const dirs = new Set();
-        const queue = [entry];
-        let processing = 0;
-        const process = () => {
-            let paused = false;
-            while (!paused) {
-                const dir = queue.shift();
-                if (!dir) {
-                    if (processing === 0)
-                        results.end();
-                    return;
-                }
-                processing++;
-                dirs.add(dir);
-                const onReaddir = (er, entries, didRealpaths = false) => {
-                    /* c8 ignore start */
-                    if (er)
-                        return results.emit('error', er);
-                    /* c8 ignore stop */
-                    if (follow && !didRealpaths) {
-                        const promises = [];
-                        for (const e of entries) {
-                            if (e.isSymbolicLink()) {
-                                promises.push(e
-                                    .realpath()
-                                    .then((r) => r?.isUnknown() ? r.lstat() : r));
-                            }
-                        }
-                        if (promises.length) {
-                            Promise.all(promises).then(() => onReaddir(null, entries, true));
-                            return;
-                        }
-                    }
-                    for (const e of entries) {
-                        if (e && (!filter || filter(e))) {
-                            if (!results.write(withFileTypes ? e : e.fullpath())) {
-                                paused = true;
-                            }
-                        }
-                    }
-                    processing--;
-                    for (const e of entries) {
-                        const r = e.realpathCached() || e;
-                        if (r.shouldWalk(dirs, walkFilter)) {
-                            queue.push(r);
-                        }
-                    }
-                    if (paused && !results.flowing) {
-                        results.once('drain', process);
-                    }
-                    else if (!sync) {
-                        process();
-                    }
-                };
-                // zalgo containment
-                let sync = true;
-                dir.readdirCB(onReaddir, true);
-                sync = false;
-            }
-        };
-        process();
-        return results;
-    }
-    streamSync(entry = this.cwd, opts = {}) {
-        if (typeof entry === 'string') {
-            entry = this.cwd.resolve(entry);
-        }
-        else if (!(entry instanceof PathBase)) {
-            opts = entry;
-            entry = this.cwd;
-        }
-        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
-        const results = new minipass_1.Minipass({ objectMode: true });
-        const dirs = new Set();
-        if (!filter || filter(entry)) {
-            results.write(withFileTypes ? entry : entry.fullpath());
-        }
-        const queue = [entry];
-        let processing = 0;
-        const process = () => {
-            let paused = false;
-            while (!paused) {
-                const dir = queue.shift();
-                if (!dir) {
-                    if (processing === 0)
-                        results.end();
-                    return;
-                }
-                processing++;
-                dirs.add(dir);
-                const entries = dir.readdirSync();
-                for (const e of entries) {
-                    if (!filter || filter(e)) {
-                        if (!results.write(withFileTypes ? e : e.fullpath())) {
-                            paused = true;
-                        }
-                    }
-                }
-                processing--;
-                for (const e of entries) {
-                    let r = e;
-                    if (e.isSymbolicLink()) {
-                        if (!(follow && (r = e.realpathSync())))
-                            continue;
-                        if (r.isUnknown())
-                            r.lstatSync();
-                    }
-                    if (r.shouldWalk(dirs, walkFilter)) {
-                        queue.push(r);
-                    }
-                }
-            }
-            if (paused && !results.flowing)
-                results.once('drain', process);
-        };
-        process();
-        return results;
-    }
-    chdir(path = this.cwd) {
-        const oldCwd = this.cwd;
-        this.cwd = typeof path === 'string' ? this.cwd.resolve(path) : path;
-        this.cwd[setAsCwd](oldCwd);
-    }
-}
-exports.PathScurryBase = PathScurryBase;
-/**
- * Windows implementation of {@link PathScurryBase}
- *
- * Defaults to case insensitve, uses `'\\'` to generate path strings.  Uses
- * {@link PathWin32} for Path objects.
- */
-class PathScurryWin32 extends PathScurryBase {
-    /**
-     * separator for generating path strings
-     */
-    sep = '\\';
-    constructor(cwd = process.cwd(), opts = {}) {
-        const { nocase = true } = opts;
-        super(cwd, node_path_1.win32, '\\', { ...opts, nocase });
-        this.nocase = nocase;
-        for (let p = this.cwd; p; p = p.parent) {
-            p.nocase = this.nocase;
-        }
-    }
-    /**
-     * @internal
-     */
-    parseRootPath(dir) {
-        // if the path starts with a single separator, it's not a UNC, and we'll
-        // just get separator as the root, and driveFromUNC will return \
-        // In that case, mount \ on the root from the cwd.
-        return node_path_1.win32.parse(dir).root.toUpperCase();
-    }
-    /**
-     * @internal
-     */
-    newRoot(fs) {
-        return new PathWin32(this.rootPath, IFDIR, undefined, this.roots, this.nocase, this.childrenCache(), { fs });
-    }
-    /**
-     * Return true if the provided path string is an absolute path
-     */
-    isAbsolute(p) {
-        return (p.startsWith('/') || p.startsWith('\\') || /^[a-z]:(\/|\\)/i.test(p));
-    }
-}
-exports.PathScurryWin32 = PathScurryWin32;
-/**
- * {@link PathScurryBase} implementation for all posix systems other than Darwin.
- *
- * Defaults to case-sensitive matching, uses `'/'` to generate path strings.
- *
- * Uses {@link PathPosix} for Path objects.
- */
-class PathScurryPosix extends PathScurryBase {
-    /**
-     * separator for generating path strings
-     */
-    sep = '/';
-    constructor(cwd = process.cwd(), opts = {}) {
-        const { nocase = false } = opts;
-        super(cwd, node_path_1.posix, '/', { ...opts, nocase });
-        this.nocase = nocase;
-    }
-    /**
-     * @internal
-     */
-    parseRootPath(_dir) {
-        return '/';
-    }
-    /**
-     * @internal
-     */
-    newRoot(fs) {
-        return new PathPosix(this.rootPath, IFDIR, undefined, this.roots, this.nocase, this.childrenCache(), { fs });
-    }
-    /**
-     * Return true if the provided path string is an absolute path
-     */
-    isAbsolute(p) {
-        return p.startsWith('/');
-    }
-}
-exports.PathScurryPosix = PathScurryPosix;
-/**
- * {@link PathScurryBase} implementation for Darwin (macOS) systems.
- *
- * Defaults to case-insensitive matching, uses `'/'` for generating path
- * strings.
- *
- * Uses {@link PathPosix} for Path objects.
- */
-class PathScurryDarwin extends PathScurryPosix {
-    constructor(cwd = process.cwd(), opts = {}) {
-        const { nocase = true } = opts;
-        super(cwd, { ...opts, nocase });
-    }
-}
-exports.PathScurryDarwin = PathScurryDarwin;
-/**
- * Default {@link PathBase} implementation for the current platform.
- *
- * {@link PathWin32} on Windows systems, {@link PathPosix} on all others.
- */
-exports.Path = process.platform === 'win32' ? PathWin32 : PathPosix;
-/**
- * Default {@link PathScurryBase} implementation for the current platform.
- *
- * {@link PathScurryWin32} on Windows systems, {@link PathScurryDarwin} on
- * Darwin (macOS) systems, {@link PathScurryPosix} on all others.
- */
-exports.PathScurry = process.platform === 'win32' ? PathScurryWin32
-    : process.platform === 'darwin' ? PathScurryDarwin
-        : PathScurryPosix;
-//# sourceMappingURL=index.js.map
-
-/***/ }),
-
-/***/ 897:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
+;// CONCATENATED MODULE: external "node:url"
+const external_node_url_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:url");
+;// CONCATENATED MODULE: ./node_modules/path-scurry/node_modules/lru-cache/dist/esm/index.js
 /**
  * @module LRUCache
  */
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.LRUCache = void 0;
 const perf = typeof performance === 'object' &&
     performance &&
     typeof performance.now === 'function'
@@ -38130,56 +32988,4617 @@ class LRUCache {
         }
     }
 }
-exports.LRUCache = LRUCache;
 //# sourceMappingURL=index.js.map
+;// CONCATENATED MODULE: external "node:path"
+const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
+;// CONCATENATED MODULE: external "node:fs"
+const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
+var external_node_fs_namespaceObject_0 = /*#__PURE__*/__nccwpck_require__.t(external_node_fs_namespaceObject, 2);
+;// CONCATENATED MODULE: external "node:fs/promises"
+const external_node_fs_promises_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs/promises");
+// EXTERNAL MODULE: external "node:events"
+var external_node_events_ = __nccwpck_require__(8474);
+// EXTERNAL MODULE: external "node:stream"
+var external_node_stream_ = __nccwpck_require__(7075);
+;// CONCATENATED MODULE: external "node:string_decoder"
+const external_node_string_decoder_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:string_decoder");
+;// CONCATENATED MODULE: ./node_modules/minipass/dist/esm/index.js
+const proc = typeof process === 'object' && process
+    ? process
+    : {
+        stdout: null,
+        stderr: null,
+    };
 
-/***/ })
 
-/******/ 	});
-/************************************************************************/
-/******/ 	// The module cache
-/******/ 	var __webpack_module_cache__ = {};
-/******/ 	
-/******/ 	// The require function
-/******/ 	function __nccwpck_require__(moduleId) {
-/******/ 		// Check if module is in cache
-/******/ 		var cachedModule = __webpack_module_cache__[moduleId];
-/******/ 		if (cachedModule !== undefined) {
-/******/ 			return cachedModule.exports;
-/******/ 		}
-/******/ 		// Create a new module (and put it into the cache)
-/******/ 		var module = __webpack_module_cache__[moduleId] = {
-/******/ 			// no module.id needed
-/******/ 			// no module.loaded needed
-/******/ 			exports: {}
-/******/ 		};
-/******/ 	
-/******/ 		// Execute the module function
-/******/ 		var threw = true;
-/******/ 		try {
-/******/ 			__webpack_modules__[moduleId].call(module.exports, module, module.exports, __nccwpck_require__);
-/******/ 			threw = false;
-/******/ 		} finally {
-/******/ 			if(threw) delete __webpack_module_cache__[moduleId];
-/******/ 		}
-/******/ 	
-/******/ 		// Return the exports of the module
-/******/ 		return module.exports;
-/******/ 	}
-/******/ 	
-/************************************************************************/
-/******/ 	/* webpack/runtime/compat */
-/******/ 	
-/******/ 	if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = __dirname + "/";
-/******/ 	
-/************************************************************************/
-/******/ 	
-/******/ 	// startup
-/******/ 	// Load entry module and return exports
-/******/ 	// This entry module is referenced by other modules so it can't be inlined
-/******/ 	var __webpack_exports__ = __nccwpck_require__(5915);
-/******/ 	module.exports = __webpack_exports__;
-/******/ 	
-/******/ })()
-;
+
+/**
+ * Return true if the argument is a Minipass stream, Node stream, or something
+ * else that Minipass can interact with.
+ */
+const isStream = (s) => !!s &&
+    typeof s === 'object' &&
+    (s instanceof Minipass ||
+        s instanceof external_node_stream_ ||
+        isReadable(s) ||
+        isWritable(s));
+/**
+ * Return true if the argument is a valid {@link Minipass.Readable}
+ */
+const isReadable = (s) => !!s &&
+    typeof s === 'object' &&
+    s instanceof external_node_events_.EventEmitter &&
+    typeof s.pipe === 'function' &&
+    // node core Writable streams have a pipe() method, but it throws
+    s.pipe !== external_node_stream_.Writable.prototype.pipe;
+/**
+ * Return true if the argument is a valid {@link Minipass.Writable}
+ */
+const isWritable = (s) => !!s &&
+    typeof s === 'object' &&
+    s instanceof external_node_events_.EventEmitter &&
+    typeof s.write === 'function' &&
+    typeof s.end === 'function';
+const EOF = Symbol('EOF');
+const MAYBE_EMIT_END = Symbol('maybeEmitEnd');
+const EMITTED_END = Symbol('emittedEnd');
+const EMITTING_END = Symbol('emittingEnd');
+const EMITTED_ERROR = Symbol('emittedError');
+const CLOSED = Symbol('closed');
+const READ = Symbol('read');
+const FLUSH = Symbol('flush');
+const FLUSHCHUNK = Symbol('flushChunk');
+const ENCODING = Symbol('encoding');
+const DECODER = Symbol('decoder');
+const FLOWING = Symbol('flowing');
+const PAUSED = Symbol('paused');
+const RESUME = Symbol('resume');
+const BUFFER = Symbol('buffer');
+const PIPES = Symbol('pipes');
+const BUFFERLENGTH = Symbol('bufferLength');
+const BUFFERPUSH = Symbol('bufferPush');
+const BUFFERSHIFT = Symbol('bufferShift');
+const OBJECTMODE = Symbol('objectMode');
+// internal event when stream is destroyed
+const DESTROYED = Symbol('destroyed');
+// internal event when stream has an error
+const ERROR = Symbol('error');
+const EMITDATA = Symbol('emitData');
+const EMITEND = Symbol('emitEnd');
+const EMITEND2 = Symbol('emitEnd2');
+const ASYNC = Symbol('async');
+const ABORT = Symbol('abort');
+const ABORTED = Symbol('aborted');
+const SIGNAL = Symbol('signal');
+const DATALISTENERS = Symbol('dataListeners');
+const DISCARDED = Symbol('discarded');
+const defer = (fn) => Promise.resolve().then(fn);
+const nodefer = (fn) => fn();
+const isEndish = (ev) => ev === 'end' || ev === 'finish' || ev === 'prefinish';
+const isArrayBufferLike = (b) => b instanceof ArrayBuffer ||
+    (!!b &&
+        typeof b === 'object' &&
+        b.constructor &&
+        b.constructor.name === 'ArrayBuffer' &&
+        b.byteLength >= 0);
+const isArrayBufferView = (b) => !Buffer.isBuffer(b) && ArrayBuffer.isView(b);
+/**
+ * Internal class representing a pipe to a destination stream.
+ *
+ * @internal
+ */
+class Pipe {
+    src;
+    dest;
+    opts;
+    ondrain;
+    constructor(src, dest, opts) {
+        this.src = src;
+        this.dest = dest;
+        this.opts = opts;
+        this.ondrain = () => src[RESUME]();
+        this.dest.on('drain', this.ondrain);
+    }
+    unpipe() {
+        this.dest.removeListener('drain', this.ondrain);
+    }
+    // only here for the prototype
+    /* c8 ignore start */
+    proxyErrors(_er) { }
+    /* c8 ignore stop */
+    end() {
+        this.unpipe();
+        if (this.opts.end)
+            this.dest.end();
+    }
+}
+/**
+ * Internal class representing a pipe to a destination stream where
+ * errors are proxied.
+ *
+ * @internal
+ */
+class PipeProxyErrors extends Pipe {
+    unpipe() {
+        this.src.removeListener('error', this.proxyErrors);
+        super.unpipe();
+    }
+    constructor(src, dest, opts) {
+        super(src, dest, opts);
+        this.proxyErrors = er => dest.emit('error', er);
+        src.on('error', this.proxyErrors);
+    }
+}
+const isObjectModeOptions = (o) => !!o.objectMode;
+const isEncodingOptions = (o) => !o.objectMode && !!o.encoding && o.encoding !== 'buffer';
+/**
+ * Main export, the Minipass class
+ *
+ * `RType` is the type of data emitted, defaults to Buffer
+ *
+ * `WType` is the type of data to be written, if RType is buffer or string,
+ * then any {@link Minipass.ContiguousData} is allowed.
+ *
+ * `Events` is the set of event handler signatures that this object
+ * will emit, see {@link Minipass.Events}
+ */
+class Minipass extends external_node_events_.EventEmitter {
+    [FLOWING] = false;
+    [PAUSED] = false;
+    [PIPES] = [];
+    [BUFFER] = [];
+    [OBJECTMODE];
+    [ENCODING];
+    [ASYNC];
+    [DECODER];
+    [EOF] = false;
+    [EMITTED_END] = false;
+    [EMITTING_END] = false;
+    [CLOSED] = false;
+    [EMITTED_ERROR] = null;
+    [BUFFERLENGTH] = 0;
+    [DESTROYED] = false;
+    [SIGNAL];
+    [ABORTED] = false;
+    [DATALISTENERS] = 0;
+    [DISCARDED] = false;
+    /**
+     * true if the stream can be written
+     */
+    writable = true;
+    /**
+     * true if the stream can be read
+     */
+    readable = true;
+    /**
+     * If `RType` is Buffer, then options do not need to be provided.
+     * Otherwise, an options object must be provided to specify either
+     * {@link Minipass.SharedOptions.objectMode} or
+     * {@link Minipass.SharedOptions.encoding}, as appropriate.
+     */
+    constructor(...args) {
+        const options = (args[0] ||
+            {});
+        super();
+        if (options.objectMode && typeof options.encoding === 'string') {
+            throw new TypeError('Encoding and objectMode may not be used together');
+        }
+        if (isObjectModeOptions(options)) {
+            this[OBJECTMODE] = true;
+            this[ENCODING] = null;
+        }
+        else if (isEncodingOptions(options)) {
+            this[ENCODING] = options.encoding;
+            this[OBJECTMODE] = false;
+        }
+        else {
+            this[OBJECTMODE] = false;
+            this[ENCODING] = null;
+        }
+        this[ASYNC] = !!options.async;
+        this[DECODER] = this[ENCODING]
+            ? new external_node_string_decoder_namespaceObject.StringDecoder(this[ENCODING])
+            : null;
+        //@ts-ignore - private option for debugging and testing
+        if (options && options.debugExposeBuffer === true) {
+            Object.defineProperty(this, 'buffer', { get: () => this[BUFFER] });
+        }
+        //@ts-ignore - private option for debugging and testing
+        if (options && options.debugExposePipes === true) {
+            Object.defineProperty(this, 'pipes', { get: () => this[PIPES] });
+        }
+        const { signal } = options;
+        if (signal) {
+            this[SIGNAL] = signal;
+            if (signal.aborted) {
+                this[ABORT]();
+            }
+            else {
+                signal.addEventListener('abort', () => this[ABORT]());
+            }
+        }
+    }
+    /**
+     * The amount of data stored in the buffer waiting to be read.
+     *
+     * For Buffer strings, this will be the total byte length.
+     * For string encoding streams, this will be the string character length,
+     * according to JavaScript's `string.length` logic.
+     * For objectMode streams, this is a count of the items waiting to be
+     * emitted.
+     */
+    get bufferLength() {
+        return this[BUFFERLENGTH];
+    }
+    /**
+     * The `BufferEncoding` currently in use, or `null`
+     */
+    get encoding() {
+        return this[ENCODING];
+    }
+    /**
+     * @deprecated - This is a read only property
+     */
+    set encoding(_enc) {
+        throw new Error('Encoding must be set at instantiation time');
+    }
+    /**
+     * @deprecated - Encoding may only be set at instantiation time
+     */
+    setEncoding(_enc) {
+        throw new Error('Encoding must be set at instantiation time');
+    }
+    /**
+     * True if this is an objectMode stream
+     */
+    get objectMode() {
+        return this[OBJECTMODE];
+    }
+    /**
+     * @deprecated - This is a read-only property
+     */
+    set objectMode(_om) {
+        throw new Error('objectMode must be set at instantiation time');
+    }
+    /**
+     * true if this is an async stream
+     */
+    get ['async']() {
+        return this[ASYNC];
+    }
+    /**
+     * Set to true to make this stream async.
+     *
+     * Once set, it cannot be unset, as this would potentially cause incorrect
+     * behavior.  Ie, a sync stream can be made async, but an async stream
+     * cannot be safely made sync.
+     */
+    set ['async'](a) {
+        this[ASYNC] = this[ASYNC] || !!a;
+    }
+    // drop everything and get out of the flow completely
+    [ABORT]() {
+        this[ABORTED] = true;
+        this.emit('abort', this[SIGNAL]?.reason);
+        this.destroy(this[SIGNAL]?.reason);
+    }
+    /**
+     * True if the stream has been aborted.
+     */
+    get aborted() {
+        return this[ABORTED];
+    }
+    /**
+     * No-op setter. Stream aborted status is set via the AbortSignal provided
+     * in the constructor options.
+     */
+    set aborted(_) { }
+    write(chunk, encoding, cb) {
+        if (this[ABORTED])
+            return false;
+        if (this[EOF])
+            throw new Error('write after end');
+        if (this[DESTROYED]) {
+            this.emit('error', Object.assign(new Error('Cannot call write after a stream was destroyed'), { code: 'ERR_STREAM_DESTROYED' }));
+            return true;
+        }
+        if (typeof encoding === 'function') {
+            cb = encoding;
+            encoding = 'utf8';
+        }
+        if (!encoding)
+            encoding = 'utf8';
+        const fn = this[ASYNC] ? defer : nodefer;
+        // convert array buffers and typed array views into buffers
+        // at some point in the future, we may want to do the opposite!
+        // leave strings and buffers as-is
+        // anything is only allowed if in object mode, so throw
+        if (!this[OBJECTMODE] && !Buffer.isBuffer(chunk)) {
+            if (isArrayBufferView(chunk)) {
+                //@ts-ignore - sinful unsafe type changing
+                chunk = Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+            }
+            else if (isArrayBufferLike(chunk)) {
+                //@ts-ignore - sinful unsafe type changing
+                chunk = Buffer.from(chunk);
+            }
+            else if (typeof chunk !== 'string') {
+                throw new Error('Non-contiguous data written to non-objectMode stream');
+            }
+        }
+        // handle object mode up front, since it's simpler
+        // this yields better performance, fewer checks later.
+        if (this[OBJECTMODE]) {
+            // maybe impossible?
+            /* c8 ignore start */
+            if (this[FLOWING] && this[BUFFERLENGTH] !== 0)
+                this[FLUSH](true);
+            /* c8 ignore stop */
+            if (this[FLOWING])
+                this.emit('data', chunk);
+            else
+                this[BUFFERPUSH](chunk);
+            if (this[BUFFERLENGTH] !== 0)
+                this.emit('readable');
+            if (cb)
+                fn(cb);
+            return this[FLOWING];
+        }
+        // at this point the chunk is a buffer or string
+        // don't buffer it up or send it to the decoder
+        if (!chunk.length) {
+            if (this[BUFFERLENGTH] !== 0)
+                this.emit('readable');
+            if (cb)
+                fn(cb);
+            return this[FLOWING];
+        }
+        // fast-path writing strings of same encoding to a stream with
+        // an empty buffer, skipping the buffer/decoder dance
+        if (typeof chunk === 'string' &&
+            // unless it is a string already ready for us to use
+            !(encoding === this[ENCODING] && !this[DECODER]?.lastNeed)) {
+            //@ts-ignore - sinful unsafe type change
+            chunk = Buffer.from(chunk, encoding);
+        }
+        if (Buffer.isBuffer(chunk) && this[ENCODING]) {
+            //@ts-ignore - sinful unsafe type change
+            chunk = this[DECODER].write(chunk);
+        }
+        // Note: flushing CAN potentially switch us into not-flowing mode
+        if (this[FLOWING] && this[BUFFERLENGTH] !== 0)
+            this[FLUSH](true);
+        if (this[FLOWING])
+            this.emit('data', chunk);
+        else
+            this[BUFFERPUSH](chunk);
+        if (this[BUFFERLENGTH] !== 0)
+            this.emit('readable');
+        if (cb)
+            fn(cb);
+        return this[FLOWING];
+    }
+    /**
+     * Low-level explicit read method.
+     *
+     * In objectMode, the argument is ignored, and one item is returned if
+     * available.
+     *
+     * `n` is the number of bytes (or in the case of encoding streams,
+     * characters) to consume. If `n` is not provided, then the entire buffer
+     * is returned, or `null` is returned if no data is available.
+     *
+     * If `n` is greater that the amount of data in the internal buffer,
+     * then `null` is returned.
+     */
+    read(n) {
+        if (this[DESTROYED])
+            return null;
+        this[DISCARDED] = false;
+        if (this[BUFFERLENGTH] === 0 ||
+            n === 0 ||
+            (n && n > this[BUFFERLENGTH])) {
+            this[MAYBE_EMIT_END]();
+            return null;
+        }
+        if (this[OBJECTMODE])
+            n = null;
+        if (this[BUFFER].length > 1 && !this[OBJECTMODE]) {
+            // not object mode, so if we have an encoding, then RType is string
+            // otherwise, must be Buffer
+            this[BUFFER] = [
+                (this[ENCODING]
+                    ? this[BUFFER].join('')
+                    : Buffer.concat(this[BUFFER], this[BUFFERLENGTH])),
+            ];
+        }
+        const ret = this[READ](n || null, this[BUFFER][0]);
+        this[MAYBE_EMIT_END]();
+        return ret;
+    }
+    [READ](n, chunk) {
+        if (this[OBJECTMODE])
+            this[BUFFERSHIFT]();
+        else {
+            const c = chunk;
+            if (n === c.length || n === null)
+                this[BUFFERSHIFT]();
+            else if (typeof c === 'string') {
+                this[BUFFER][0] = c.slice(n);
+                chunk = c.slice(0, n);
+                this[BUFFERLENGTH] -= n;
+            }
+            else {
+                this[BUFFER][0] = c.subarray(n);
+                chunk = c.subarray(0, n);
+                this[BUFFERLENGTH] -= n;
+            }
+        }
+        this.emit('data', chunk);
+        if (!this[BUFFER].length && !this[EOF])
+            this.emit('drain');
+        return chunk;
+    }
+    end(chunk, encoding, cb) {
+        if (typeof chunk === 'function') {
+            cb = chunk;
+            chunk = undefined;
+        }
+        if (typeof encoding === 'function') {
+            cb = encoding;
+            encoding = 'utf8';
+        }
+        if (chunk !== undefined)
+            this.write(chunk, encoding);
+        if (cb)
+            this.once('end', cb);
+        this[EOF] = true;
+        this.writable = false;
+        // if we haven't written anything, then go ahead and emit,
+        // even if we're not reading.
+        // we'll re-emit if a new 'end' listener is added anyway.
+        // This makes MP more suitable to write-only use cases.
+        if (this[FLOWING] || !this[PAUSED])
+            this[MAYBE_EMIT_END]();
+        return this;
+    }
+    // don't let the internal resume be overwritten
+    [RESUME]() {
+        if (this[DESTROYED])
+            return;
+        if (!this[DATALISTENERS] && !this[PIPES].length) {
+            this[DISCARDED] = true;
+        }
+        this[PAUSED] = false;
+        this[FLOWING] = true;
+        this.emit('resume');
+        if (this[BUFFER].length)
+            this[FLUSH]();
+        else if (this[EOF])
+            this[MAYBE_EMIT_END]();
+        else
+            this.emit('drain');
+    }
+    /**
+     * Resume the stream if it is currently in a paused state
+     *
+     * If called when there are no pipe destinations or `data` event listeners,
+     * this will place the stream in a "discarded" state, where all data will
+     * be thrown away. The discarded state is removed if a pipe destination or
+     * data handler is added, if pause() is called, or if any synchronous or
+     * asynchronous iteration is started.
+     */
+    resume() {
+        return this[RESUME]();
+    }
+    /**
+     * Pause the stream
+     */
+    pause() {
+        this[FLOWING] = false;
+        this[PAUSED] = true;
+        this[DISCARDED] = false;
+    }
+    /**
+     * true if the stream has been forcibly destroyed
+     */
+    get destroyed() {
+        return this[DESTROYED];
+    }
+    /**
+     * true if the stream is currently in a flowing state, meaning that
+     * any writes will be immediately emitted.
+     */
+    get flowing() {
+        return this[FLOWING];
+    }
+    /**
+     * true if the stream is currently in a paused state
+     */
+    get paused() {
+        return this[PAUSED];
+    }
+    [BUFFERPUSH](chunk) {
+        if (this[OBJECTMODE])
+            this[BUFFERLENGTH] += 1;
+        else
+            this[BUFFERLENGTH] += chunk.length;
+        this[BUFFER].push(chunk);
+    }
+    [BUFFERSHIFT]() {
+        if (this[OBJECTMODE])
+            this[BUFFERLENGTH] -= 1;
+        else
+            this[BUFFERLENGTH] -= this[BUFFER][0].length;
+        return this[BUFFER].shift();
+    }
+    [FLUSH](noDrain = false) {
+        do { } while (this[FLUSHCHUNK](this[BUFFERSHIFT]()) &&
+            this[BUFFER].length);
+        if (!noDrain && !this[BUFFER].length && !this[EOF])
+            this.emit('drain');
+    }
+    [FLUSHCHUNK](chunk) {
+        this.emit('data', chunk);
+        return this[FLOWING];
+    }
+    /**
+     * Pipe all data emitted by this stream into the destination provided.
+     *
+     * Triggers the flow of data.
+     */
+    pipe(dest, opts) {
+        if (this[DESTROYED])
+            return dest;
+        this[DISCARDED] = false;
+        const ended = this[EMITTED_END];
+        opts = opts || {};
+        if (dest === proc.stdout || dest === proc.stderr)
+            opts.end = false;
+        else
+            opts.end = opts.end !== false;
+        opts.proxyErrors = !!opts.proxyErrors;
+        // piping an ended stream ends immediately
+        if (ended) {
+            if (opts.end)
+                dest.end();
+        }
+        else {
+            // "as" here just ignores the WType, which pipes don't care about,
+            // since they're only consuming from us, and writing to the dest
+            this[PIPES].push(!opts.proxyErrors
+                ? new Pipe(this, dest, opts)
+                : new PipeProxyErrors(this, dest, opts));
+            if (this[ASYNC])
+                defer(() => this[RESUME]());
+            else
+                this[RESUME]();
+        }
+        return dest;
+    }
+    /**
+     * Fully unhook a piped destination stream.
+     *
+     * If the destination stream was the only consumer of this stream (ie,
+     * there are no other piped destinations or `'data'` event listeners)
+     * then the flow of data will stop until there is another consumer or
+     * {@link Minipass#resume} is explicitly called.
+     */
+    unpipe(dest) {
+        const p = this[PIPES].find(p => p.dest === dest);
+        if (p) {
+            if (this[PIPES].length === 1) {
+                if (this[FLOWING] && this[DATALISTENERS] === 0) {
+                    this[FLOWING] = false;
+                }
+                this[PIPES] = [];
+            }
+            else
+                this[PIPES].splice(this[PIPES].indexOf(p), 1);
+            p.unpipe();
+        }
+    }
+    /**
+     * Alias for {@link Minipass#on}
+     */
+    addListener(ev, handler) {
+        return this.on(ev, handler);
+    }
+    /**
+     * Mostly identical to `EventEmitter.on`, with the following
+     * behavior differences to prevent data loss and unnecessary hangs:
+     *
+     * - Adding a 'data' event handler will trigger the flow of data
+     *
+     * - Adding a 'readable' event handler when there is data waiting to be read
+     *   will cause 'readable' to be emitted immediately.
+     *
+     * - Adding an 'endish' event handler ('end', 'finish', etc.) which has
+     *   already passed will cause the event to be emitted immediately and all
+     *   handlers removed.
+     *
+     * - Adding an 'error' event handler after an error has been emitted will
+     *   cause the event to be re-emitted immediately with the error previously
+     *   raised.
+     */
+    on(ev, handler) {
+        const ret = super.on(ev, handler);
+        if (ev === 'data') {
+            this[DISCARDED] = false;
+            this[DATALISTENERS]++;
+            if (!this[PIPES].length && !this[FLOWING]) {
+                this[RESUME]();
+            }
+        }
+        else if (ev === 'readable' && this[BUFFERLENGTH] !== 0) {
+            super.emit('readable');
+        }
+        else if (isEndish(ev) && this[EMITTED_END]) {
+            super.emit(ev);
+            this.removeAllListeners(ev);
+        }
+        else if (ev === 'error' && this[EMITTED_ERROR]) {
+            const h = handler;
+            if (this[ASYNC])
+                defer(() => h.call(this, this[EMITTED_ERROR]));
+            else
+                h.call(this, this[EMITTED_ERROR]);
+        }
+        return ret;
+    }
+    /**
+     * Alias for {@link Minipass#off}
+     */
+    removeListener(ev, handler) {
+        return this.off(ev, handler);
+    }
+    /**
+     * Mostly identical to `EventEmitter.off`
+     *
+     * If a 'data' event handler is removed, and it was the last consumer
+     * (ie, there are no pipe destinations or other 'data' event listeners),
+     * then the flow of data will stop until there is another consumer or
+     * {@link Minipass#resume} is explicitly called.
+     */
+    off(ev, handler) {
+        const ret = super.off(ev, handler);
+        // if we previously had listeners, and now we don't, and we don't
+        // have any pipes, then stop the flow, unless it's been explicitly
+        // put in a discarded flowing state via stream.resume().
+        if (ev === 'data') {
+            this[DATALISTENERS] = this.listeners('data').length;
+            if (this[DATALISTENERS] === 0 &&
+                !this[DISCARDED] &&
+                !this[PIPES].length) {
+                this[FLOWING] = false;
+            }
+        }
+        return ret;
+    }
+    /**
+     * Mostly identical to `EventEmitter.removeAllListeners`
+     *
+     * If all 'data' event handlers are removed, and they were the last consumer
+     * (ie, there are no pipe destinations), then the flow of data will stop
+     * until there is another consumer or {@link Minipass#resume} is explicitly
+     * called.
+     */
+    removeAllListeners(ev) {
+        const ret = super.removeAllListeners(ev);
+        if (ev === 'data' || ev === undefined) {
+            this[DATALISTENERS] = 0;
+            if (!this[DISCARDED] && !this[PIPES].length) {
+                this[FLOWING] = false;
+            }
+        }
+        return ret;
+    }
+    /**
+     * true if the 'end' event has been emitted
+     */
+    get emittedEnd() {
+        return this[EMITTED_END];
+    }
+    [MAYBE_EMIT_END]() {
+        if (!this[EMITTING_END] &&
+            !this[EMITTED_END] &&
+            !this[DESTROYED] &&
+            this[BUFFER].length === 0 &&
+            this[EOF]) {
+            this[EMITTING_END] = true;
+            this.emit('end');
+            this.emit('prefinish');
+            this.emit('finish');
+            if (this[CLOSED])
+                this.emit('close');
+            this[EMITTING_END] = false;
+        }
+    }
+    /**
+     * Mostly identical to `EventEmitter.emit`, with the following
+     * behavior differences to prevent data loss and unnecessary hangs:
+     *
+     * If the stream has been destroyed, and the event is something other
+     * than 'close' or 'error', then `false` is returned and no handlers
+     * are called.
+     *
+     * If the event is 'end', and has already been emitted, then the event
+     * is ignored. If the stream is in a paused or non-flowing state, then
+     * the event will be deferred until data flow resumes. If the stream is
+     * async, then handlers will be called on the next tick rather than
+     * immediately.
+     *
+     * If the event is 'close', and 'end' has not yet been emitted, then
+     * the event will be deferred until after 'end' is emitted.
+     *
+     * If the event is 'error', and an AbortSignal was provided for the stream,
+     * and there are no listeners, then the event is ignored, matching the
+     * behavior of node core streams in the presense of an AbortSignal.
+     *
+     * If the event is 'finish' or 'prefinish', then all listeners will be
+     * removed after emitting the event, to prevent double-firing.
+     */
+    emit(ev, ...args) {
+        const data = args[0];
+        // error and close are only events allowed after calling destroy()
+        if (ev !== 'error' &&
+            ev !== 'close' &&
+            ev !== DESTROYED &&
+            this[DESTROYED]) {
+            return false;
+        }
+        else if (ev === 'data') {
+            return !this[OBJECTMODE] && !data
+                ? false
+                : this[ASYNC]
+                    ? (defer(() => this[EMITDATA](data)), true)
+                    : this[EMITDATA](data);
+        }
+        else if (ev === 'end') {
+            return this[EMITEND]();
+        }
+        else if (ev === 'close') {
+            this[CLOSED] = true;
+            // don't emit close before 'end' and 'finish'
+            if (!this[EMITTED_END] && !this[DESTROYED])
+                return false;
+            const ret = super.emit('close');
+            this.removeAllListeners('close');
+            return ret;
+        }
+        else if (ev === 'error') {
+            this[EMITTED_ERROR] = data;
+            super.emit(ERROR, data);
+            const ret = !this[SIGNAL] || this.listeners('error').length
+                ? super.emit('error', data)
+                : false;
+            this[MAYBE_EMIT_END]();
+            return ret;
+        }
+        else if (ev === 'resume') {
+            const ret = super.emit('resume');
+            this[MAYBE_EMIT_END]();
+            return ret;
+        }
+        else if (ev === 'finish' || ev === 'prefinish') {
+            const ret = super.emit(ev);
+            this.removeAllListeners(ev);
+            return ret;
+        }
+        // Some other unknown event
+        const ret = super.emit(ev, ...args);
+        this[MAYBE_EMIT_END]();
+        return ret;
+    }
+    [EMITDATA](data) {
+        for (const p of this[PIPES]) {
+            if (p.dest.write(data) === false)
+                this.pause();
+        }
+        const ret = this[DISCARDED] ? false : super.emit('data', data);
+        this[MAYBE_EMIT_END]();
+        return ret;
+    }
+    [EMITEND]() {
+        if (this[EMITTED_END])
+            return false;
+        this[EMITTED_END] = true;
+        this.readable = false;
+        return this[ASYNC]
+            ? (defer(() => this[EMITEND2]()), true)
+            : this[EMITEND2]();
+    }
+    [EMITEND2]() {
+        if (this[DECODER]) {
+            const data = this[DECODER].end();
+            if (data) {
+                for (const p of this[PIPES]) {
+                    p.dest.write(data);
+                }
+                if (!this[DISCARDED])
+                    super.emit('data', data);
+            }
+        }
+        for (const p of this[PIPES]) {
+            p.end();
+        }
+        const ret = super.emit('end');
+        this.removeAllListeners('end');
+        return ret;
+    }
+    /**
+     * Return a Promise that resolves to an array of all emitted data once
+     * the stream ends.
+     */
+    async collect() {
+        const buf = Object.assign([], {
+            dataLength: 0,
+        });
+        if (!this[OBJECTMODE])
+            buf.dataLength = 0;
+        // set the promise first, in case an error is raised
+        // by triggering the flow here.
+        const p = this.promise();
+        this.on('data', c => {
+            buf.push(c);
+            if (!this[OBJECTMODE])
+                buf.dataLength += c.length;
+        });
+        await p;
+        return buf;
+    }
+    /**
+     * Return a Promise that resolves to the concatenation of all emitted data
+     * once the stream ends.
+     *
+     * Not allowed on objectMode streams.
+     */
+    async concat() {
+        if (this[OBJECTMODE]) {
+            throw new Error('cannot concat in objectMode');
+        }
+        const buf = await this.collect();
+        return (this[ENCODING]
+            ? buf.join('')
+            : Buffer.concat(buf, buf.dataLength));
+    }
+    /**
+     * Return a void Promise that resolves once the stream ends.
+     */
+    async promise() {
+        return new Promise((resolve, reject) => {
+            this.on(DESTROYED, () => reject(new Error('stream destroyed')));
+            this.on('error', er => reject(er));
+            this.on('end', () => resolve());
+        });
+    }
+    /**
+     * Asynchronous `for await of` iteration.
+     *
+     * This will continue emitting all chunks until the stream terminates.
+     */
+    [Symbol.asyncIterator]() {
+        // set this up front, in case the consumer doesn't call next()
+        // right away.
+        this[DISCARDED] = false;
+        let stopped = false;
+        const stop = async () => {
+            this.pause();
+            stopped = true;
+            return { value: undefined, done: true };
+        };
+        const next = () => {
+            if (stopped)
+                return stop();
+            const res = this.read();
+            if (res !== null)
+                return Promise.resolve({ done: false, value: res });
+            if (this[EOF])
+                return stop();
+            let resolve;
+            let reject;
+            const onerr = (er) => {
+                this.off('data', ondata);
+                this.off('end', onend);
+                this.off(DESTROYED, ondestroy);
+                stop();
+                reject(er);
+            };
+            const ondata = (value) => {
+                this.off('error', onerr);
+                this.off('end', onend);
+                this.off(DESTROYED, ondestroy);
+                this.pause();
+                resolve({ value, done: !!this[EOF] });
+            };
+            const onend = () => {
+                this.off('error', onerr);
+                this.off('data', ondata);
+                this.off(DESTROYED, ondestroy);
+                stop();
+                resolve({ done: true, value: undefined });
+            };
+            const ondestroy = () => onerr(new Error('stream destroyed'));
+            return new Promise((res, rej) => {
+                reject = rej;
+                resolve = res;
+                this.once(DESTROYED, ondestroy);
+                this.once('error', onerr);
+                this.once('end', onend);
+                this.once('data', ondata);
+            });
+        };
+        return {
+            next,
+            throw: stop,
+            return: stop,
+            [Symbol.asyncIterator]() {
+                return this;
+            },
+        };
+    }
+    /**
+     * Synchronous `for of` iteration.
+     *
+     * The iteration will terminate when the internal buffer runs out, even
+     * if the stream has not yet terminated.
+     */
+    [Symbol.iterator]() {
+        // set this up front, in case the consumer doesn't call next()
+        // right away.
+        this[DISCARDED] = false;
+        let stopped = false;
+        const stop = () => {
+            this.pause();
+            this.off(ERROR, stop);
+            this.off(DESTROYED, stop);
+            this.off('end', stop);
+            stopped = true;
+            return { done: true, value: undefined };
+        };
+        const next = () => {
+            if (stopped)
+                return stop();
+            const value = this.read();
+            return value === null ? stop() : { done: false, value };
+        };
+        this.once('end', stop);
+        this.once(ERROR, stop);
+        this.once(DESTROYED, stop);
+        return {
+            next,
+            throw: stop,
+            return: stop,
+            [Symbol.iterator]() {
+                return this;
+            },
+        };
+    }
+    /**
+     * Destroy a stream, preventing it from being used for any further purpose.
+     *
+     * If the stream has a `close()` method, then it will be called on
+     * destruction.
+     *
+     * After destruction, any attempt to write data, read data, or emit most
+     * events will be ignored.
+     *
+     * If an error argument is provided, then it will be emitted in an
+     * 'error' event.
+     */
+    destroy(er) {
+        if (this[DESTROYED]) {
+            if (er)
+                this.emit('error', er);
+            else
+                this.emit(DESTROYED);
+            return this;
+        }
+        this[DESTROYED] = true;
+        this[DISCARDED] = true;
+        // throw away all buffered data, it's never coming out
+        this[BUFFER].length = 0;
+        this[BUFFERLENGTH] = 0;
+        const wc = this;
+        if (typeof wc.close === 'function' && !this[CLOSED])
+            wc.close();
+        if (er)
+            this.emit('error', er);
+        // if no error to emit, still reject pending promises
+        else
+            this.emit(DESTROYED);
+        return this;
+    }
+    /**
+     * Alias for {@link isStream}
+     *
+     * Former export location, maintained for backwards compatibility.
+     *
+     * @deprecated
+     */
+    static get isStream() {
+        return isStream;
+    }
+}
+//# sourceMappingURL=index.js.map
+;// CONCATENATED MODULE: ./node_modules/path-scurry/dist/esm/index.js
+
+
+
+
+
+const realpathSync = external_fs_.realpathSync.native;
+// TODO: test perf of fs/promises realpath vs realpathCB,
+// since the promises one uses realpath.native
+
+
+const defaultFS = {
+    lstatSync: external_fs_.lstatSync,
+    readdir: external_fs_.readdir,
+    readdirSync: external_fs_.readdirSync,
+    readlinkSync: external_fs_.readlinkSync,
+    realpathSync,
+    promises: {
+        lstat: external_node_fs_promises_namespaceObject.lstat,
+        readdir: external_node_fs_promises_namespaceObject.readdir,
+        readlink: external_node_fs_promises_namespaceObject.readlink,
+        realpath: external_node_fs_promises_namespaceObject.realpath,
+    },
+};
+// if they just gave us require('fs') then use our default
+const fsFromOption = (fsOption) => !fsOption || fsOption === defaultFS || fsOption === external_node_fs_namespaceObject_0 ?
+    defaultFS
+    : {
+        ...defaultFS,
+        ...fsOption,
+        promises: {
+            ...defaultFS.promises,
+            ...(fsOption.promises || {}),
+        },
+    };
+// turn something like //?/c:/ into c:\
+const uncDriveRegexp = /^\\\\\?\\([a-z]:)\\?$/i;
+const uncToDrive = (rootPath) => rootPath.replace(/\//g, '\\').replace(uncDriveRegexp, '$1\\');
+// windows paths are separated by either / or \
+const eitherSep = /[\\\/]/;
+const UNKNOWN = 0; // may not even exist, for all we know
+const IFIFO = 0b0001;
+const IFCHR = 0b0010;
+const IFDIR = 0b0100;
+const IFBLK = 0b0110;
+const IFREG = 0b1000;
+const IFLNK = 0b1010;
+const IFSOCK = 0b1100;
+const IFMT = 0b1111;
+// mask to unset low 4 bits
+const IFMT_UNKNOWN = ~IFMT;
+// set after successfully calling readdir() and getting entries.
+const READDIR_CALLED = 0b0000_0001_0000;
+// set after a successful lstat()
+const LSTAT_CALLED = 0b0000_0010_0000;
+// set if an entry (or one of its parents) is definitely not a dir
+const ENOTDIR = 0b0000_0100_0000;
+// set if an entry (or one of its parents) does not exist
+// (can also be set on lstat errors like EACCES or ENAMETOOLONG)
+const ENOENT = 0b0000_1000_0000;
+// cannot have child entries -- also verify &IFMT is either IFDIR or IFLNK
+// set if we fail to readlink
+const ENOREADLINK = 0b0001_0000_0000;
+// set if we know realpath() will fail
+const ENOREALPATH = 0b0010_0000_0000;
+const ENOCHILD = ENOTDIR | ENOENT | ENOREALPATH;
+const TYPEMASK = 0b0011_1111_1111;
+const entToType = (s) => s.isFile() ? IFREG
+    : s.isDirectory() ? IFDIR
+        : s.isSymbolicLink() ? IFLNK
+            : s.isCharacterDevice() ? IFCHR
+                : s.isBlockDevice() ? IFBLK
+                    : s.isSocket() ? IFSOCK
+                        : s.isFIFO() ? IFIFO
+                            : UNKNOWN;
+// normalize unicode path names
+const normalizeCache = new Map();
+const normalize = (s) => {
+    const c = normalizeCache.get(s);
+    if (c)
+        return c;
+    const n = s.normalize('NFKD');
+    normalizeCache.set(s, n);
+    return n;
+};
+const normalizeNocaseCache = new Map();
+const normalizeNocase = (s) => {
+    const c = normalizeNocaseCache.get(s);
+    if (c)
+        return c;
+    const n = normalize(s.toLowerCase());
+    normalizeNocaseCache.set(s, n);
+    return n;
+};
+/**
+ * An LRUCache for storing resolved path strings or Path objects.
+ * @internal
+ */
+class ResolveCache extends LRUCache {
+    constructor() {
+        super({ max: 256 });
+    }
+}
+// In order to prevent blowing out the js heap by allocating hundreds of
+// thousands of Path entries when walking extremely large trees, the "children"
+// in this tree are represented by storing an array of Path entries in an
+// LRUCache, indexed by the parent.  At any time, Path.children() may return an
+// empty array, indicating that it doesn't know about any of its children, and
+// thus has to rebuild that cache.  This is fine, it just means that we don't
+// benefit as much from having the cached entries, but huge directory walks
+// don't blow out the stack, and smaller ones are still as fast as possible.
+//
+//It does impose some complexity when building up the readdir data, because we
+//need to pass a reference to the children array that we started with.
+/**
+ * an LRUCache for storing child entries.
+ * @internal
+ */
+class ChildrenCache extends LRUCache {
+    constructor(maxSize = 16 * 1024) {
+        super({
+            maxSize,
+            // parent + children
+            sizeCalculation: a => a.length + 1,
+        });
+    }
+}
+const setAsCwd = Symbol('PathScurry setAsCwd');
+/**
+ * Path objects are sort of like a super-powered
+ * {@link https://nodejs.org/docs/latest/api/fs.html#class-fsdirent fs.Dirent}
+ *
+ * Each one represents a single filesystem entry on disk, which may or may not
+ * exist. It includes methods for reading various types of information via
+ * lstat, readlink, and readdir, and caches all information to the greatest
+ * degree possible.
+ *
+ * Note that fs operations that would normally throw will instead return an
+ * "empty" value. This is in order to prevent excessive overhead from error
+ * stack traces.
+ */
+class PathBase {
+    /**
+     * the basename of this path
+     *
+     * **Important**: *always* test the path name against any test string
+     * usingthe {@link isNamed} method, and not by directly comparing this
+     * string. Otherwise, unicode path strings that the system sees as identical
+     * will not be properly treated as the same path, leading to incorrect
+     * behavior and possible security issues.
+     */
+    name;
+    /**
+     * the Path entry corresponding to the path root.
+     *
+     * @internal
+     */
+    root;
+    /**
+     * All roots found within the current PathScurry family
+     *
+     * @internal
+     */
+    roots;
+    /**
+     * a reference to the parent path, or undefined in the case of root entries
+     *
+     * @internal
+     */
+    parent;
+    /**
+     * boolean indicating whether paths are compared case-insensitively
+     * @internal
+     */
+    nocase;
+    /**
+     * boolean indicating that this path is the current working directory
+     * of the PathScurry collection that contains it.
+     */
+    isCWD = false;
+    // potential default fs override
+    #fs;
+    // Stats fields
+    #dev;
+    get dev() {
+        return this.#dev;
+    }
+    #mode;
+    get mode() {
+        return this.#mode;
+    }
+    #nlink;
+    get nlink() {
+        return this.#nlink;
+    }
+    #uid;
+    get uid() {
+        return this.#uid;
+    }
+    #gid;
+    get gid() {
+        return this.#gid;
+    }
+    #rdev;
+    get rdev() {
+        return this.#rdev;
+    }
+    #blksize;
+    get blksize() {
+        return this.#blksize;
+    }
+    #ino;
+    get ino() {
+        return this.#ino;
+    }
+    #size;
+    get size() {
+        return this.#size;
+    }
+    #blocks;
+    get blocks() {
+        return this.#blocks;
+    }
+    #atimeMs;
+    get atimeMs() {
+        return this.#atimeMs;
+    }
+    #mtimeMs;
+    get mtimeMs() {
+        return this.#mtimeMs;
+    }
+    #ctimeMs;
+    get ctimeMs() {
+        return this.#ctimeMs;
+    }
+    #birthtimeMs;
+    get birthtimeMs() {
+        return this.#birthtimeMs;
+    }
+    #atime;
+    get atime() {
+        return this.#atime;
+    }
+    #mtime;
+    get mtime() {
+        return this.#mtime;
+    }
+    #ctime;
+    get ctime() {
+        return this.#ctime;
+    }
+    #birthtime;
+    get birthtime() {
+        return this.#birthtime;
+    }
+    #matchName;
+    #depth;
+    #fullpath;
+    #fullpathPosix;
+    #relative;
+    #relativePosix;
+    #type;
+    #children;
+    #linkTarget;
+    #realpath;
+    /**
+     * This property is for compatibility with the Dirent class as of
+     * Node v20, where Dirent['parentPath'] refers to the path of the
+     * directory that was passed to readdir. For root entries, it's the path
+     * to the entry itself.
+     */
+    get parentPath() {
+        return (this.parent || this).fullpath();
+    }
+    /**
+     * Deprecated alias for Dirent['parentPath'] Somewhat counterintuitively,
+     * this property refers to the *parent* path, not the path object itself.
+     *
+     * @deprecated
+     */
+    get path() {
+        return this.parentPath;
+    }
+    /**
+     * Do not create new Path objects directly.  They should always be accessed
+     * via the PathScurry class or other methods on the Path class.
+     *
+     * @internal
+     */
+    constructor(name, type = UNKNOWN, root, roots, nocase, children, opts) {
+        this.name = name;
+        this.#matchName = nocase ? normalizeNocase(name) : normalize(name);
+        this.#type = type & TYPEMASK;
+        this.nocase = nocase;
+        this.roots = roots;
+        this.root = root || this;
+        this.#children = children;
+        this.#fullpath = opts.fullpath;
+        this.#relative = opts.relative;
+        this.#relativePosix = opts.relativePosix;
+        this.parent = opts.parent;
+        if (this.parent) {
+            this.#fs = this.parent.#fs;
+        }
+        else {
+            this.#fs = fsFromOption(opts.fs);
+        }
+    }
+    /**
+     * Returns the depth of the Path object from its root.
+     *
+     * For example, a path at `/foo/bar` would have a depth of 2.
+     */
+    depth() {
+        if (this.#depth !== undefined)
+            return this.#depth;
+        if (!this.parent)
+            return (this.#depth = 0);
+        return (this.#depth = this.parent.depth() + 1);
+    }
+    /**
+     * @internal
+     */
+    childrenCache() {
+        return this.#children;
+    }
+    /**
+     * Get the Path object referenced by the string path, resolved from this Path
+     */
+    resolve(path) {
+        if (!path) {
+            return this;
+        }
+        const rootPath = this.getRootString(path);
+        const dir = path.substring(rootPath.length);
+        const dirParts = dir.split(this.splitSep);
+        const result = rootPath ?
+            this.getRoot(rootPath).#resolveParts(dirParts)
+            : this.#resolveParts(dirParts);
+        return result;
+    }
+    #resolveParts(dirParts) {
+        let p = this;
+        for (const part of dirParts) {
+            p = p.child(part);
+        }
+        return p;
+    }
+    /**
+     * Returns the cached children Path objects, if still available.  If they
+     * have fallen out of the cache, then returns an empty array, and resets the
+     * READDIR_CALLED bit, so that future calls to readdir() will require an fs
+     * lookup.
+     *
+     * @internal
+     */
+    children() {
+        const cached = this.#children.get(this);
+        if (cached) {
+            return cached;
+        }
+        const children = Object.assign([], { provisional: 0 });
+        this.#children.set(this, children);
+        this.#type &= ~READDIR_CALLED;
+        return children;
+    }
+    /**
+     * Resolves a path portion and returns or creates the child Path.
+     *
+     * Returns `this` if pathPart is `''` or `'.'`, or `parent` if pathPart is
+     * `'..'`.
+     *
+     * This should not be called directly.  If `pathPart` contains any path
+     * separators, it will lead to unsafe undefined behavior.
+     *
+     * Use `Path.resolve()` instead.
+     *
+     * @internal
+     */
+    child(pathPart, opts) {
+        if (pathPart === '' || pathPart === '.') {
+            return this;
+        }
+        if (pathPart === '..') {
+            return this.parent || this;
+        }
+        // find the child
+        const children = this.children();
+        const name = this.nocase ? normalizeNocase(pathPart) : normalize(pathPart);
+        for (const p of children) {
+            if (p.#matchName === name) {
+                return p;
+            }
+        }
+        // didn't find it, create provisional child, since it might not
+        // actually exist.  If we know the parent isn't a dir, then
+        // in fact it CAN'T exist.
+        const s = this.parent ? this.sep : '';
+        const fullpath = this.#fullpath ? this.#fullpath + s + pathPart : undefined;
+        const pchild = this.newChild(pathPart, UNKNOWN, {
+            ...opts,
+            parent: this,
+            fullpath,
+        });
+        if (!this.canReaddir()) {
+            pchild.#type |= ENOENT;
+        }
+        // don't have to update provisional, because if we have real children,
+        // then provisional is set to children.length, otherwise a lower number
+        children.push(pchild);
+        return pchild;
+    }
+    /**
+     * The relative path from the cwd. If it does not share an ancestor with
+     * the cwd, then this ends up being equivalent to the fullpath()
+     */
+    relative() {
+        if (this.isCWD)
+            return '';
+        if (this.#relative !== undefined) {
+            return this.#relative;
+        }
+        const name = this.name;
+        const p = this.parent;
+        if (!p) {
+            return (this.#relative = this.name);
+        }
+        const pv = p.relative();
+        return pv + (!pv || !p.parent ? '' : this.sep) + name;
+    }
+    /**
+     * The relative path from the cwd, using / as the path separator.
+     * If it does not share an ancestor with
+     * the cwd, then this ends up being equivalent to the fullpathPosix()
+     * On posix systems, this is identical to relative().
+     */
+    relativePosix() {
+        if (this.sep === '/')
+            return this.relative();
+        if (this.isCWD)
+            return '';
+        if (this.#relativePosix !== undefined)
+            return this.#relativePosix;
+        const name = this.name;
+        const p = this.parent;
+        if (!p) {
+            return (this.#relativePosix = this.fullpathPosix());
+        }
+        const pv = p.relativePosix();
+        return pv + (!pv || !p.parent ? '' : '/') + name;
+    }
+    /**
+     * The fully resolved path string for this Path entry
+     */
+    fullpath() {
+        if (this.#fullpath !== undefined) {
+            return this.#fullpath;
+        }
+        const name = this.name;
+        const p = this.parent;
+        if (!p) {
+            return (this.#fullpath = this.name);
+        }
+        const pv = p.fullpath();
+        const fp = pv + (!p.parent ? '' : this.sep) + name;
+        return (this.#fullpath = fp);
+    }
+    /**
+     * On platforms other than windows, this is identical to fullpath.
+     *
+     * On windows, this is overridden to return the forward-slash form of the
+     * full UNC path.
+     */
+    fullpathPosix() {
+        if (this.#fullpathPosix !== undefined)
+            return this.#fullpathPosix;
+        if (this.sep === '/')
+            return (this.#fullpathPosix = this.fullpath());
+        if (!this.parent) {
+            const p = this.fullpath().replace(/\\/g, '/');
+            if (/^[a-z]:\//i.test(p)) {
+                return (this.#fullpathPosix = `//?/${p}`);
+            }
+            else {
+                return (this.#fullpathPosix = p);
+            }
+        }
+        const p = this.parent;
+        const pfpp = p.fullpathPosix();
+        const fpp = pfpp + (!pfpp || !p.parent ? '' : '/') + this.name;
+        return (this.#fullpathPosix = fpp);
+    }
+    /**
+     * Is the Path of an unknown type?
+     *
+     * Note that we might know *something* about it if there has been a previous
+     * filesystem operation, for example that it does not exist, or is not a
+     * link, or whether it has child entries.
+     */
+    isUnknown() {
+        return (this.#type & IFMT) === UNKNOWN;
+    }
+    isType(type) {
+        return this[`is${type}`]();
+    }
+    getType() {
+        return (this.isUnknown() ? 'Unknown'
+            : this.isDirectory() ? 'Directory'
+                : this.isFile() ? 'File'
+                    : this.isSymbolicLink() ? 'SymbolicLink'
+                        : this.isFIFO() ? 'FIFO'
+                            : this.isCharacterDevice() ? 'CharacterDevice'
+                                : this.isBlockDevice() ? 'BlockDevice'
+                                    : /* c8 ignore start */ this.isSocket() ? 'Socket'
+                                        : 'Unknown');
+        /* c8 ignore stop */
+    }
+    /**
+     * Is the Path a regular file?
+     */
+    isFile() {
+        return (this.#type & IFMT) === IFREG;
+    }
+    /**
+     * Is the Path a directory?
+     */
+    isDirectory() {
+        return (this.#type & IFMT) === IFDIR;
+    }
+    /**
+     * Is the path a character device?
+     */
+    isCharacterDevice() {
+        return (this.#type & IFMT) === IFCHR;
+    }
+    /**
+     * Is the path a block device?
+     */
+    isBlockDevice() {
+        return (this.#type & IFMT) === IFBLK;
+    }
+    /**
+     * Is the path a FIFO pipe?
+     */
+    isFIFO() {
+        return (this.#type & IFMT) === IFIFO;
+    }
+    /**
+     * Is the path a socket?
+     */
+    isSocket() {
+        return (this.#type & IFMT) === IFSOCK;
+    }
+    /**
+     * Is the path a symbolic link?
+     */
+    isSymbolicLink() {
+        return (this.#type & IFLNK) === IFLNK;
+    }
+    /**
+     * Return the entry if it has been subject of a successful lstat, or
+     * undefined otherwise.
+     *
+     * Does not read the filesystem, so an undefined result *could* simply
+     * mean that we haven't called lstat on it.
+     */
+    lstatCached() {
+        return this.#type & LSTAT_CALLED ? this : undefined;
+    }
+    /**
+     * Return the cached link target if the entry has been the subject of a
+     * successful readlink, or undefined otherwise.
+     *
+     * Does not read the filesystem, so an undefined result *could* just mean we
+     * don't have any cached data. Only use it if you are very sure that a
+     * readlink() has been called at some point.
+     */
+    readlinkCached() {
+        return this.#linkTarget;
+    }
+    /**
+     * Returns the cached realpath target if the entry has been the subject
+     * of a successful realpath, or undefined otherwise.
+     *
+     * Does not read the filesystem, so an undefined result *could* just mean we
+     * don't have any cached data. Only use it if you are very sure that a
+     * realpath() has been called at some point.
+     */
+    realpathCached() {
+        return this.#realpath;
+    }
+    /**
+     * Returns the cached child Path entries array if the entry has been the
+     * subject of a successful readdir(), or [] otherwise.
+     *
+     * Does not read the filesystem, so an empty array *could* just mean we
+     * don't have any cached data. Only use it if you are very sure that a
+     * readdir() has been called recently enough to still be valid.
+     */
+    readdirCached() {
+        const children = this.children();
+        return children.slice(0, children.provisional);
+    }
+    /**
+     * Return true if it's worth trying to readlink.  Ie, we don't (yet) have
+     * any indication that readlink will definitely fail.
+     *
+     * Returns false if the path is known to not be a symlink, if a previous
+     * readlink failed, or if the entry does not exist.
+     */
+    canReadlink() {
+        if (this.#linkTarget)
+            return true;
+        if (!this.parent)
+            return false;
+        // cases where it cannot possibly succeed
+        const ifmt = this.#type & IFMT;
+        return !((ifmt !== UNKNOWN && ifmt !== IFLNK) ||
+            this.#type & ENOREADLINK ||
+            this.#type & ENOENT);
+    }
+    /**
+     * Return true if readdir has previously been successfully called on this
+     * path, indicating that cachedReaddir() is likely valid.
+     */
+    calledReaddir() {
+        return !!(this.#type & READDIR_CALLED);
+    }
+    /**
+     * Returns true if the path is known to not exist. That is, a previous lstat
+     * or readdir failed to verify its existence when that would have been
+     * expected, or a parent entry was marked either enoent or enotdir.
+     */
+    isENOENT() {
+        return !!(this.#type & ENOENT);
+    }
+    /**
+     * Return true if the path is a match for the given path name.  This handles
+     * case sensitivity and unicode normalization.
+     *
+     * Note: even on case-sensitive systems, it is **not** safe to test the
+     * equality of the `.name` property to determine whether a given pathname
+     * matches, due to unicode normalization mismatches.
+     *
+     * Always use this method instead of testing the `path.name` property
+     * directly.
+     */
+    isNamed(n) {
+        return !this.nocase ?
+            this.#matchName === normalize(n)
+            : this.#matchName === normalizeNocase(n);
+    }
+    /**
+     * Return the Path object corresponding to the target of a symbolic link.
+     *
+     * If the Path is not a symbolic link, or if the readlink call fails for any
+     * reason, `undefined` is returned.
+     *
+     * Result is cached, and thus may be outdated if the filesystem is mutated.
+     */
+    async readlink() {
+        const target = this.#linkTarget;
+        if (target) {
+            return target;
+        }
+        if (!this.canReadlink()) {
+            return undefined;
+        }
+        /* c8 ignore start */
+        // already covered by the canReadlink test, here for ts grumples
+        if (!this.parent) {
+            return undefined;
+        }
+        /* c8 ignore stop */
+        try {
+            const read = await this.#fs.promises.readlink(this.fullpath());
+            const linkTarget = (await this.parent.realpath())?.resolve(read);
+            if (linkTarget) {
+                return (this.#linkTarget = linkTarget);
+            }
+        }
+        catch (er) {
+            this.#readlinkFail(er.code);
+            return undefined;
+        }
+    }
+    /**
+     * Synchronous {@link PathBase.readlink}
+     */
+    readlinkSync() {
+        const target = this.#linkTarget;
+        if (target) {
+            return target;
+        }
+        if (!this.canReadlink()) {
+            return undefined;
+        }
+        /* c8 ignore start */
+        // already covered by the canReadlink test, here for ts grumples
+        if (!this.parent) {
+            return undefined;
+        }
+        /* c8 ignore stop */
+        try {
+            const read = this.#fs.readlinkSync(this.fullpath());
+            const linkTarget = this.parent.realpathSync()?.resolve(read);
+            if (linkTarget) {
+                return (this.#linkTarget = linkTarget);
+            }
+        }
+        catch (er) {
+            this.#readlinkFail(er.code);
+            return undefined;
+        }
+    }
+    #readdirSuccess(children) {
+        // succeeded, mark readdir called bit
+        this.#type |= READDIR_CALLED;
+        // mark all remaining provisional children as ENOENT
+        for (let p = children.provisional; p < children.length; p++) {
+            const c = children[p];
+            if (c)
+                c.#markENOENT();
+        }
+    }
+    #markENOENT() {
+        // mark as UNKNOWN and ENOENT
+        if (this.#type & ENOENT)
+            return;
+        this.#type = (this.#type | ENOENT) & IFMT_UNKNOWN;
+        this.#markChildrenENOENT();
+    }
+    #markChildrenENOENT() {
+        // all children are provisional and do not exist
+        const children = this.children();
+        children.provisional = 0;
+        for (const p of children) {
+            p.#markENOENT();
+        }
+    }
+    #markENOREALPATH() {
+        this.#type |= ENOREALPATH;
+        this.#markENOTDIR();
+    }
+    // save the information when we know the entry is not a dir
+    #markENOTDIR() {
+        // entry is not a directory, so any children can't exist.
+        // this *should* be impossible, since any children created
+        // after it's been marked ENOTDIR should be marked ENOENT,
+        // so it won't even get to this point.
+        /* c8 ignore start */
+        if (this.#type & ENOTDIR)
+            return;
+        /* c8 ignore stop */
+        let t = this.#type;
+        // this could happen if we stat a dir, then delete it,
+        // then try to read it or one of its children.
+        if ((t & IFMT) === IFDIR)
+            t &= IFMT_UNKNOWN;
+        this.#type = t | ENOTDIR;
+        this.#markChildrenENOENT();
+    }
+    #readdirFail(code = '') {
+        // markENOTDIR and markENOENT also set provisional=0
+        if (code === 'ENOTDIR' || code === 'EPERM') {
+            this.#markENOTDIR();
+        }
+        else if (code === 'ENOENT') {
+            this.#markENOENT();
+        }
+        else {
+            this.children().provisional = 0;
+        }
+    }
+    #lstatFail(code = '') {
+        // Windows just raises ENOENT in this case, disable for win CI
+        /* c8 ignore start */
+        if (code === 'ENOTDIR') {
+            // already know it has a parent by this point
+            const p = this.parent;
+            p.#markENOTDIR();
+        }
+        else if (code === 'ENOENT') {
+            /* c8 ignore stop */
+            this.#markENOENT();
+        }
+    }
+    #readlinkFail(code = '') {
+        let ter = this.#type;
+        ter |= ENOREADLINK;
+        if (code === 'ENOENT')
+            ter |= ENOENT;
+        // windows gets a weird error when you try to readlink a file
+        if (code === 'EINVAL' || code === 'UNKNOWN') {
+            // exists, but not a symlink, we don't know WHAT it is, so remove
+            // all IFMT bits.
+            ter &= IFMT_UNKNOWN;
+        }
+        this.#type = ter;
+        // windows just gets ENOENT in this case.  We do cover the case,
+        // just disabled because it's impossible on Windows CI
+        /* c8 ignore start */
+        if (code === 'ENOTDIR' && this.parent) {
+            this.parent.#markENOTDIR();
+        }
+        /* c8 ignore stop */
+    }
+    #readdirAddChild(e, c) {
+        return (this.#readdirMaybePromoteChild(e, c) ||
+            this.#readdirAddNewChild(e, c));
+    }
+    #readdirAddNewChild(e, c) {
+        // alloc new entry at head, so it's never provisional
+        const type = entToType(e);
+        const child = this.newChild(e.name, type, { parent: this });
+        const ifmt = child.#type & IFMT;
+        if (ifmt !== IFDIR && ifmt !== IFLNK && ifmt !== UNKNOWN) {
+            child.#type |= ENOTDIR;
+        }
+        c.unshift(child);
+        c.provisional++;
+        return child;
+    }
+    #readdirMaybePromoteChild(e, c) {
+        for (let p = c.provisional; p < c.length; p++) {
+            const pchild = c[p];
+            const name = this.nocase ? normalizeNocase(e.name) : normalize(e.name);
+            if (name !== pchild.#matchName) {
+                continue;
+            }
+            return this.#readdirPromoteChild(e, pchild, p, c);
+        }
+    }
+    #readdirPromoteChild(e, p, index, c) {
+        const v = p.name;
+        // retain any other flags, but set ifmt from dirent
+        p.#type = (p.#type & IFMT_UNKNOWN) | entToType(e);
+        // case sensitivity fixing when we learn the true name.
+        if (v !== e.name)
+            p.name = e.name;
+        // just advance provisional index (potentially off the list),
+        // otherwise we have to splice/pop it out and re-insert at head
+        if (index !== c.provisional) {
+            if (index === c.length - 1)
+                c.pop();
+            else
+                c.splice(index, 1);
+            c.unshift(p);
+        }
+        c.provisional++;
+        return p;
+    }
+    /**
+     * Call lstat() on this Path, and update all known information that can be
+     * determined.
+     *
+     * Note that unlike `fs.lstat()`, the returned value does not contain some
+     * information, such as `mode`, `dev`, `nlink`, and `ino`.  If that
+     * information is required, you will need to call `fs.lstat` yourself.
+     *
+     * If the Path refers to a nonexistent file, or if the lstat call fails for
+     * any reason, `undefined` is returned.  Otherwise the updated Path object is
+     * returned.
+     *
+     * Results are cached, and thus may be out of date if the filesystem is
+     * mutated.
+     */
+    async lstat() {
+        if ((this.#type & ENOENT) === 0) {
+            try {
+                this.#applyStat(await this.#fs.promises.lstat(this.fullpath()));
+                return this;
+            }
+            catch (er) {
+                this.#lstatFail(er.code);
+            }
+        }
+    }
+    /**
+     * synchronous {@link PathBase.lstat}
+     */
+    lstatSync() {
+        if ((this.#type & ENOENT) === 0) {
+            try {
+                this.#applyStat(this.#fs.lstatSync(this.fullpath()));
+                return this;
+            }
+            catch (er) {
+                this.#lstatFail(er.code);
+            }
+        }
+    }
+    #applyStat(st) {
+        const { atime, atimeMs, birthtime, birthtimeMs, blksize, blocks, ctime, ctimeMs, dev, gid, ino, mode, mtime, mtimeMs, nlink, rdev, size, uid, } = st;
+        this.#atime = atime;
+        this.#atimeMs = atimeMs;
+        this.#birthtime = birthtime;
+        this.#birthtimeMs = birthtimeMs;
+        this.#blksize = blksize;
+        this.#blocks = blocks;
+        this.#ctime = ctime;
+        this.#ctimeMs = ctimeMs;
+        this.#dev = dev;
+        this.#gid = gid;
+        this.#ino = ino;
+        this.#mode = mode;
+        this.#mtime = mtime;
+        this.#mtimeMs = mtimeMs;
+        this.#nlink = nlink;
+        this.#rdev = rdev;
+        this.#size = size;
+        this.#uid = uid;
+        const ifmt = entToType(st);
+        // retain any other flags, but set the ifmt
+        this.#type = (this.#type & IFMT_UNKNOWN) | ifmt | LSTAT_CALLED;
+        if (ifmt !== UNKNOWN && ifmt !== IFDIR && ifmt !== IFLNK) {
+            this.#type |= ENOTDIR;
+        }
+    }
+    #onReaddirCB = [];
+    #readdirCBInFlight = false;
+    #callOnReaddirCB(children) {
+        this.#readdirCBInFlight = false;
+        const cbs = this.#onReaddirCB.slice();
+        this.#onReaddirCB.length = 0;
+        cbs.forEach(cb => cb(null, children));
+    }
+    /**
+     * Standard node-style callback interface to get list of directory entries.
+     *
+     * If the Path cannot or does not contain any children, then an empty array
+     * is returned.
+     *
+     * Results are cached, and thus may be out of date if the filesystem is
+     * mutated.
+     *
+     * @param cb The callback called with (er, entries).  Note that the `er`
+     * param is somewhat extraneous, as all readdir() errors are handled and
+     * simply result in an empty set of entries being returned.
+     * @param allowZalgo Boolean indicating that immediately known results should
+     * *not* be deferred with `queueMicrotask`. Defaults to `false`. Release
+     * zalgo at your peril, the dark pony lord is devious and unforgiving.
+     */
+    readdirCB(cb, allowZalgo = false) {
+        if (!this.canReaddir()) {
+            if (allowZalgo)
+                cb(null, []);
+            else
+                queueMicrotask(() => cb(null, []));
+            return;
+        }
+        const children = this.children();
+        if (this.calledReaddir()) {
+            const c = children.slice(0, children.provisional);
+            if (allowZalgo)
+                cb(null, c);
+            else
+                queueMicrotask(() => cb(null, c));
+            return;
+        }
+        // don't have to worry about zalgo at this point.
+        this.#onReaddirCB.push(cb);
+        if (this.#readdirCBInFlight) {
+            return;
+        }
+        this.#readdirCBInFlight = true;
+        // else read the directory, fill up children
+        // de-provisionalize any provisional children.
+        const fullpath = this.fullpath();
+        this.#fs.readdir(fullpath, { withFileTypes: true }, (er, entries) => {
+            if (er) {
+                this.#readdirFail(er.code);
+                children.provisional = 0;
+            }
+            else {
+                // if we didn't get an error, we always get entries.
+                //@ts-ignore
+                for (const e of entries) {
+                    this.#readdirAddChild(e, children);
+                }
+                this.#readdirSuccess(children);
+            }
+            this.#callOnReaddirCB(children.slice(0, children.provisional));
+            return;
+        });
+    }
+    #asyncReaddirInFlight;
+    /**
+     * Return an array of known child entries.
+     *
+     * If the Path cannot or does not contain any children, then an empty array
+     * is returned.
+     *
+     * Results are cached, and thus may be out of date if the filesystem is
+     * mutated.
+     */
+    async readdir() {
+        if (!this.canReaddir()) {
+            return [];
+        }
+        const children = this.children();
+        if (this.calledReaddir()) {
+            return children.slice(0, children.provisional);
+        }
+        // else read the directory, fill up children
+        // de-provisionalize any provisional children.
+        const fullpath = this.fullpath();
+        if (this.#asyncReaddirInFlight) {
+            await this.#asyncReaddirInFlight;
+        }
+        else {
+            /* c8 ignore start */
+            let resolve = () => { };
+            /* c8 ignore stop */
+            this.#asyncReaddirInFlight = new Promise(res => (resolve = res));
+            try {
+                for (const e of await this.#fs.promises.readdir(fullpath, {
+                    withFileTypes: true,
+                })) {
+                    this.#readdirAddChild(e, children);
+                }
+                this.#readdirSuccess(children);
+            }
+            catch (er) {
+                this.#readdirFail(er.code);
+                children.provisional = 0;
+            }
+            this.#asyncReaddirInFlight = undefined;
+            resolve();
+        }
+        return children.slice(0, children.provisional);
+    }
+    /**
+     * synchronous {@link PathBase.readdir}
+     */
+    readdirSync() {
+        if (!this.canReaddir()) {
+            return [];
+        }
+        const children = this.children();
+        if (this.calledReaddir()) {
+            return children.slice(0, children.provisional);
+        }
+        // else read the directory, fill up children
+        // de-provisionalize any provisional children.
+        const fullpath = this.fullpath();
+        try {
+            for (const e of this.#fs.readdirSync(fullpath, {
+                withFileTypes: true,
+            })) {
+                this.#readdirAddChild(e, children);
+            }
+            this.#readdirSuccess(children);
+        }
+        catch (er) {
+            this.#readdirFail(er.code);
+            children.provisional = 0;
+        }
+        return children.slice(0, children.provisional);
+    }
+    canReaddir() {
+        if (this.#type & ENOCHILD)
+            return false;
+        const ifmt = IFMT & this.#type;
+        // we always set ENOTDIR when setting IFMT, so should be impossible
+        /* c8 ignore start */
+        if (!(ifmt === UNKNOWN || ifmt === IFDIR || ifmt === IFLNK)) {
+            return false;
+        }
+        /* c8 ignore stop */
+        return true;
+    }
+    shouldWalk(dirs, walkFilter) {
+        return ((this.#type & IFDIR) === IFDIR &&
+            !(this.#type & ENOCHILD) &&
+            !dirs.has(this) &&
+            (!walkFilter || walkFilter(this)));
+    }
+    /**
+     * Return the Path object corresponding to path as resolved
+     * by realpath(3).
+     *
+     * If the realpath call fails for any reason, `undefined` is returned.
+     *
+     * Result is cached, and thus may be outdated if the filesystem is mutated.
+     * On success, returns a Path object.
+     */
+    async realpath() {
+        if (this.#realpath)
+            return this.#realpath;
+        if ((ENOREALPATH | ENOREADLINK | ENOENT) & this.#type)
+            return undefined;
+        try {
+            const rp = await this.#fs.promises.realpath(this.fullpath());
+            return (this.#realpath = this.resolve(rp));
+        }
+        catch (_) {
+            this.#markENOREALPATH();
+        }
+    }
+    /**
+     * Synchronous {@link realpath}
+     */
+    realpathSync() {
+        if (this.#realpath)
+            return this.#realpath;
+        if ((ENOREALPATH | ENOREADLINK | ENOENT) & this.#type)
+            return undefined;
+        try {
+            const rp = this.#fs.realpathSync(this.fullpath());
+            return (this.#realpath = this.resolve(rp));
+        }
+        catch (_) {
+            this.#markENOREALPATH();
+        }
+    }
+    /**
+     * Internal method to mark this Path object as the scurry cwd,
+     * called by {@link PathScurry#chdir}
+     *
+     * @internal
+     */
+    [setAsCwd](oldCwd) {
+        if (oldCwd === this)
+            return;
+        oldCwd.isCWD = false;
+        this.isCWD = true;
+        const changed = new Set([]);
+        let rp = [];
+        let p = this;
+        while (p && p.parent) {
+            changed.add(p);
+            p.#relative = rp.join(this.sep);
+            p.#relativePosix = rp.join('/');
+            p = p.parent;
+            rp.push('..');
+        }
+        // now un-memoize parents of old cwd
+        p = oldCwd;
+        while (p && p.parent && !changed.has(p)) {
+            p.#relative = undefined;
+            p.#relativePosix = undefined;
+            p = p.parent;
+        }
+    }
+}
+/**
+ * Path class used on win32 systems
+ *
+ * Uses `'\\'` as the path separator for returned paths, either `'\\'` or `'/'`
+ * as the path separator for parsing paths.
+ */
+class PathWin32 extends PathBase {
+    /**
+     * Separator for generating path strings.
+     */
+    sep = '\\';
+    /**
+     * Separator for parsing path strings.
+     */
+    splitSep = eitherSep;
+    /**
+     * Do not create new Path objects directly.  They should always be accessed
+     * via the PathScurry class or other methods on the Path class.
+     *
+     * @internal
+     */
+    constructor(name, type = UNKNOWN, root, roots, nocase, children, opts) {
+        super(name, type, root, roots, nocase, children, opts);
+    }
+    /**
+     * @internal
+     */
+    newChild(name, type = UNKNOWN, opts = {}) {
+        return new PathWin32(name, type, this.root, this.roots, this.nocase, this.childrenCache(), opts);
+    }
+    /**
+     * @internal
+     */
+    getRootString(path) {
+        return external_node_path_namespaceObject.win32.parse(path).root;
+    }
+    /**
+     * @internal
+     */
+    getRoot(rootPath) {
+        rootPath = uncToDrive(rootPath.toUpperCase());
+        if (rootPath === this.root.name) {
+            return this.root;
+        }
+        // ok, not that one, check if it matches another we know about
+        for (const [compare, root] of Object.entries(this.roots)) {
+            if (this.sameRoot(rootPath, compare)) {
+                return (this.roots[rootPath] = root);
+            }
+        }
+        // otherwise, have to create a new one.
+        return (this.roots[rootPath] = new PathScurryWin32(rootPath, this).root);
+    }
+    /**
+     * @internal
+     */
+    sameRoot(rootPath, compare = this.root.name) {
+        // windows can (rarely) have case-sensitive filesystem, but
+        // UNC and drive letters are always case-insensitive, and canonically
+        // represented uppercase.
+        rootPath = rootPath
+            .toUpperCase()
+            .replace(/\//g, '\\')
+            .replace(uncDriveRegexp, '$1\\');
+        return rootPath === compare;
+    }
+}
+/**
+ * Path class used on all posix systems.
+ *
+ * Uses `'/'` as the path separator.
+ */
+class PathPosix extends PathBase {
+    /**
+     * separator for parsing path strings
+     */
+    splitSep = '/';
+    /**
+     * separator for generating path strings
+     */
+    sep = '/';
+    /**
+     * Do not create new Path objects directly.  They should always be accessed
+     * via the PathScurry class or other methods on the Path class.
+     *
+     * @internal
+     */
+    constructor(name, type = UNKNOWN, root, roots, nocase, children, opts) {
+        super(name, type, root, roots, nocase, children, opts);
+    }
+    /**
+     * @internal
+     */
+    getRootString(path) {
+        return path.startsWith('/') ? '/' : '';
+    }
+    /**
+     * @internal
+     */
+    getRoot(_rootPath) {
+        return this.root;
+    }
+    /**
+     * @internal
+     */
+    newChild(name, type = UNKNOWN, opts = {}) {
+        return new PathPosix(name, type, this.root, this.roots, this.nocase, this.childrenCache(), opts);
+    }
+}
+/**
+ * The base class for all PathScurry classes, providing the interface for path
+ * resolution and filesystem operations.
+ *
+ * Typically, you should *not* instantiate this class directly, but rather one
+ * of the platform-specific classes, or the exported {@link PathScurry} which
+ * defaults to the current platform.
+ */
+class PathScurryBase {
+    /**
+     * The root Path entry for the current working directory of this Scurry
+     */
+    root;
+    /**
+     * The string path for the root of this Scurry's current working directory
+     */
+    rootPath;
+    /**
+     * A collection of all roots encountered, referenced by rootPath
+     */
+    roots;
+    /**
+     * The Path entry corresponding to this PathScurry's current working directory.
+     */
+    cwd;
+    #resolveCache;
+    #resolvePosixCache;
+    #children;
+    /**
+     * Perform path comparisons case-insensitively.
+     *
+     * Defaults true on Darwin and Windows systems, false elsewhere.
+     */
+    nocase;
+    #fs;
+    /**
+     * This class should not be instantiated directly.
+     *
+     * Use PathScurryWin32, PathScurryDarwin, PathScurryPosix, or PathScurry
+     *
+     * @internal
+     */
+    constructor(cwd = process.cwd(), pathImpl, sep, { nocase, childrenCacheSize = 16 * 1024, fs = defaultFS, } = {}) {
+        this.#fs = fsFromOption(fs);
+        if (cwd instanceof URL || cwd.startsWith('file://')) {
+            cwd = (0,external_node_url_namespaceObject.fileURLToPath)(cwd);
+        }
+        // resolve and split root, and then add to the store.
+        // this is the only time we call path.resolve()
+        const cwdPath = pathImpl.resolve(cwd);
+        this.roots = Object.create(null);
+        this.rootPath = this.parseRootPath(cwdPath);
+        this.#resolveCache = new ResolveCache();
+        this.#resolvePosixCache = new ResolveCache();
+        this.#children = new ChildrenCache(childrenCacheSize);
+        const split = cwdPath.substring(this.rootPath.length).split(sep);
+        // resolve('/') leaves '', splits to [''], we don't want that.
+        if (split.length === 1 && !split[0]) {
+            split.pop();
+        }
+        /* c8 ignore start */
+        if (nocase === undefined) {
+            throw new TypeError('must provide nocase setting to PathScurryBase ctor');
+        }
+        /* c8 ignore stop */
+        this.nocase = nocase;
+        this.root = this.newRoot(this.#fs);
+        this.roots[this.rootPath] = this.root;
+        let prev = this.root;
+        let len = split.length - 1;
+        const joinSep = pathImpl.sep;
+        let abs = this.rootPath;
+        let sawFirst = false;
+        for (const part of split) {
+            const l = len--;
+            prev = prev.child(part, {
+                relative: new Array(l).fill('..').join(joinSep),
+                relativePosix: new Array(l).fill('..').join('/'),
+                fullpath: (abs += (sawFirst ? '' : joinSep) + part),
+            });
+            sawFirst = true;
+        }
+        this.cwd = prev;
+    }
+    /**
+     * Get the depth of a provided path, string, or the cwd
+     */
+    depth(path = this.cwd) {
+        if (typeof path === 'string') {
+            path = this.cwd.resolve(path);
+        }
+        return path.depth();
+    }
+    /**
+     * Return the cache of child entries.  Exposed so subclasses can create
+     * child Path objects in a platform-specific way.
+     *
+     * @internal
+     */
+    childrenCache() {
+        return this.#children;
+    }
+    /**
+     * Resolve one or more path strings to a resolved string
+     *
+     * Same interface as require('path').resolve.
+     *
+     * Much faster than path.resolve() when called multiple times for the same
+     * path, because the resolved Path objects are cached.  Much slower
+     * otherwise.
+     */
+    resolve(...paths) {
+        // first figure out the minimum number of paths we have to test
+        // we always start at cwd, but any absolutes will bump the start
+        let r = '';
+        for (let i = paths.length - 1; i >= 0; i--) {
+            const p = paths[i];
+            if (!p || p === '.')
+                continue;
+            r = r ? `${p}/${r}` : p;
+            if (this.isAbsolute(p)) {
+                break;
+            }
+        }
+        const cached = this.#resolveCache.get(r);
+        if (cached !== undefined) {
+            return cached;
+        }
+        const result = this.cwd.resolve(r).fullpath();
+        this.#resolveCache.set(r, result);
+        return result;
+    }
+    /**
+     * Resolve one or more path strings to a resolved string, returning
+     * the posix path.  Identical to .resolve() on posix systems, but on
+     * windows will return a forward-slash separated UNC path.
+     *
+     * Same interface as require('path').resolve.
+     *
+     * Much faster than path.resolve() when called multiple times for the same
+     * path, because the resolved Path objects are cached.  Much slower
+     * otherwise.
+     */
+    resolvePosix(...paths) {
+        // first figure out the minimum number of paths we have to test
+        // we always start at cwd, but any absolutes will bump the start
+        let r = '';
+        for (let i = paths.length - 1; i >= 0; i--) {
+            const p = paths[i];
+            if (!p || p === '.')
+                continue;
+            r = r ? `${p}/${r}` : p;
+            if (this.isAbsolute(p)) {
+                break;
+            }
+        }
+        const cached = this.#resolvePosixCache.get(r);
+        if (cached !== undefined) {
+            return cached;
+        }
+        const result = this.cwd.resolve(r).fullpathPosix();
+        this.#resolvePosixCache.set(r, result);
+        return result;
+    }
+    /**
+     * find the relative path from the cwd to the supplied path string or entry
+     */
+    relative(entry = this.cwd) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        return entry.relative();
+    }
+    /**
+     * find the relative path from the cwd to the supplied path string or
+     * entry, using / as the path delimiter, even on Windows.
+     */
+    relativePosix(entry = this.cwd) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        return entry.relativePosix();
+    }
+    /**
+     * Return the basename for the provided string or Path object
+     */
+    basename(entry = this.cwd) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        return entry.name;
+    }
+    /**
+     * Return the dirname for the provided string or Path object
+     */
+    dirname(entry = this.cwd) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        return (entry.parent || entry).fullpath();
+    }
+    async readdir(entry = this.cwd, opts = {
+        withFileTypes: true,
+    }) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            opts = entry;
+            entry = this.cwd;
+        }
+        const { withFileTypes } = opts;
+        if (!entry.canReaddir()) {
+            return [];
+        }
+        else {
+            const p = await entry.readdir();
+            return withFileTypes ? p : p.map(e => e.name);
+        }
+    }
+    readdirSync(entry = this.cwd, opts = {
+        withFileTypes: true,
+    }) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            opts = entry;
+            entry = this.cwd;
+        }
+        const { withFileTypes = true } = opts;
+        if (!entry.canReaddir()) {
+            return [];
+        }
+        else if (withFileTypes) {
+            return entry.readdirSync();
+        }
+        else {
+            return entry.readdirSync().map(e => e.name);
+        }
+    }
+    /**
+     * Call lstat() on the string or Path object, and update all known
+     * information that can be determined.
+     *
+     * Note that unlike `fs.lstat()`, the returned value does not contain some
+     * information, such as `mode`, `dev`, `nlink`, and `ino`.  If that
+     * information is required, you will need to call `fs.lstat` yourself.
+     *
+     * If the Path refers to a nonexistent file, or if the lstat call fails for
+     * any reason, `undefined` is returned.  Otherwise the updated Path object is
+     * returned.
+     *
+     * Results are cached, and thus may be out of date if the filesystem is
+     * mutated.
+     */
+    async lstat(entry = this.cwd) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        return entry.lstat();
+    }
+    /**
+     * synchronous {@link PathScurryBase.lstat}
+     */
+    lstatSync(entry = this.cwd) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        return entry.lstatSync();
+    }
+    async readlink(entry = this.cwd, { withFileTypes } = {
+        withFileTypes: false,
+    }) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            withFileTypes = entry.withFileTypes;
+            entry = this.cwd;
+        }
+        const e = await entry.readlink();
+        return withFileTypes ? e : e?.fullpath();
+    }
+    readlinkSync(entry = this.cwd, { withFileTypes } = {
+        withFileTypes: false,
+    }) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            withFileTypes = entry.withFileTypes;
+            entry = this.cwd;
+        }
+        const e = entry.readlinkSync();
+        return withFileTypes ? e : e?.fullpath();
+    }
+    async realpath(entry = this.cwd, { withFileTypes } = {
+        withFileTypes: false,
+    }) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            withFileTypes = entry.withFileTypes;
+            entry = this.cwd;
+        }
+        const e = await entry.realpath();
+        return withFileTypes ? e : e?.fullpath();
+    }
+    realpathSync(entry = this.cwd, { withFileTypes } = {
+        withFileTypes: false,
+    }) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            withFileTypes = entry.withFileTypes;
+            entry = this.cwd;
+        }
+        const e = entry.realpathSync();
+        return withFileTypes ? e : e?.fullpath();
+    }
+    async walk(entry = this.cwd, opts = {}) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            opts = entry;
+            entry = this.cwd;
+        }
+        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
+        const results = [];
+        if (!filter || filter(entry)) {
+            results.push(withFileTypes ? entry : entry.fullpath());
+        }
+        const dirs = new Set();
+        const walk = (dir, cb) => {
+            dirs.add(dir);
+            dir.readdirCB((er, entries) => {
+                /* c8 ignore start */
+                if (er) {
+                    return cb(er);
+                }
+                /* c8 ignore stop */
+                let len = entries.length;
+                if (!len)
+                    return cb();
+                const next = () => {
+                    if (--len === 0) {
+                        cb();
+                    }
+                };
+                for (const e of entries) {
+                    if (!filter || filter(e)) {
+                        results.push(withFileTypes ? e : e.fullpath());
+                    }
+                    if (follow && e.isSymbolicLink()) {
+                        e.realpath()
+                            .then(r => (r?.isUnknown() ? r.lstat() : r))
+                            .then(r => r?.shouldWalk(dirs, walkFilter) ? walk(r, next) : next());
+                    }
+                    else {
+                        if (e.shouldWalk(dirs, walkFilter)) {
+                            walk(e, next);
+                        }
+                        else {
+                            next();
+                        }
+                    }
+                }
+            }, true); // zalgooooooo
+        };
+        const start = entry;
+        return new Promise((res, rej) => {
+            walk(start, er => {
+                /* c8 ignore start */
+                if (er)
+                    return rej(er);
+                /* c8 ignore stop */
+                res(results);
+            });
+        });
+    }
+    walkSync(entry = this.cwd, opts = {}) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            opts = entry;
+            entry = this.cwd;
+        }
+        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
+        const results = [];
+        if (!filter || filter(entry)) {
+            results.push(withFileTypes ? entry : entry.fullpath());
+        }
+        const dirs = new Set([entry]);
+        for (const dir of dirs) {
+            const entries = dir.readdirSync();
+            for (const e of entries) {
+                if (!filter || filter(e)) {
+                    results.push(withFileTypes ? e : e.fullpath());
+                }
+                let r = e;
+                if (e.isSymbolicLink()) {
+                    if (!(follow && (r = e.realpathSync())))
+                        continue;
+                    if (r.isUnknown())
+                        r.lstatSync();
+                }
+                if (r.shouldWalk(dirs, walkFilter)) {
+                    dirs.add(r);
+                }
+            }
+        }
+        return results;
+    }
+    /**
+     * Support for `for await`
+     *
+     * Alias for {@link PathScurryBase.iterate}
+     *
+     * Note: As of Node 19, this is very slow, compared to other methods of
+     * walking.  Consider using {@link PathScurryBase.stream} if memory overhead
+     * and backpressure are concerns, or {@link PathScurryBase.walk} if not.
+     */
+    [Symbol.asyncIterator]() {
+        return this.iterate();
+    }
+    iterate(entry = this.cwd, options = {}) {
+        // iterating async over the stream is significantly more performant,
+        // especially in the warm-cache scenario, because it buffers up directory
+        // entries in the background instead of waiting for a yield for each one.
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            options = entry;
+            entry = this.cwd;
+        }
+        return this.stream(entry, options)[Symbol.asyncIterator]();
+    }
+    /**
+     * Iterating over a PathScurry performs a synchronous walk.
+     *
+     * Alias for {@link PathScurryBase.iterateSync}
+     */
+    [Symbol.iterator]() {
+        return this.iterateSync();
+    }
+    *iterateSync(entry = this.cwd, opts = {}) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            opts = entry;
+            entry = this.cwd;
+        }
+        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
+        if (!filter || filter(entry)) {
+            yield withFileTypes ? entry : entry.fullpath();
+        }
+        const dirs = new Set([entry]);
+        for (const dir of dirs) {
+            const entries = dir.readdirSync();
+            for (const e of entries) {
+                if (!filter || filter(e)) {
+                    yield withFileTypes ? e : e.fullpath();
+                }
+                let r = e;
+                if (e.isSymbolicLink()) {
+                    if (!(follow && (r = e.realpathSync())))
+                        continue;
+                    if (r.isUnknown())
+                        r.lstatSync();
+                }
+                if (r.shouldWalk(dirs, walkFilter)) {
+                    dirs.add(r);
+                }
+            }
+        }
+    }
+    stream(entry = this.cwd, opts = {}) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            opts = entry;
+            entry = this.cwd;
+        }
+        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
+        const results = new Minipass({ objectMode: true });
+        if (!filter || filter(entry)) {
+            results.write(withFileTypes ? entry : entry.fullpath());
+        }
+        const dirs = new Set();
+        const queue = [entry];
+        let processing = 0;
+        const process = () => {
+            let paused = false;
+            while (!paused) {
+                const dir = queue.shift();
+                if (!dir) {
+                    if (processing === 0)
+                        results.end();
+                    return;
+                }
+                processing++;
+                dirs.add(dir);
+                const onReaddir = (er, entries, didRealpaths = false) => {
+                    /* c8 ignore start */
+                    if (er)
+                        return results.emit('error', er);
+                    /* c8 ignore stop */
+                    if (follow && !didRealpaths) {
+                        const promises = [];
+                        for (const e of entries) {
+                            if (e.isSymbolicLink()) {
+                                promises.push(e
+                                    .realpath()
+                                    .then((r) => r?.isUnknown() ? r.lstat() : r));
+                            }
+                        }
+                        if (promises.length) {
+                            Promise.all(promises).then(() => onReaddir(null, entries, true));
+                            return;
+                        }
+                    }
+                    for (const e of entries) {
+                        if (e && (!filter || filter(e))) {
+                            if (!results.write(withFileTypes ? e : e.fullpath())) {
+                                paused = true;
+                            }
+                        }
+                    }
+                    processing--;
+                    for (const e of entries) {
+                        const r = e.realpathCached() || e;
+                        if (r.shouldWalk(dirs, walkFilter)) {
+                            queue.push(r);
+                        }
+                    }
+                    if (paused && !results.flowing) {
+                        results.once('drain', process);
+                    }
+                    else if (!sync) {
+                        process();
+                    }
+                };
+                // zalgo containment
+                let sync = true;
+                dir.readdirCB(onReaddir, true);
+                sync = false;
+            }
+        };
+        process();
+        return results;
+    }
+    streamSync(entry = this.cwd, opts = {}) {
+        if (typeof entry === 'string') {
+            entry = this.cwd.resolve(entry);
+        }
+        else if (!(entry instanceof PathBase)) {
+            opts = entry;
+            entry = this.cwd;
+        }
+        const { withFileTypes = true, follow = false, filter, walkFilter, } = opts;
+        const results = new Minipass({ objectMode: true });
+        const dirs = new Set();
+        if (!filter || filter(entry)) {
+            results.write(withFileTypes ? entry : entry.fullpath());
+        }
+        const queue = [entry];
+        let processing = 0;
+        const process = () => {
+            let paused = false;
+            while (!paused) {
+                const dir = queue.shift();
+                if (!dir) {
+                    if (processing === 0)
+                        results.end();
+                    return;
+                }
+                processing++;
+                dirs.add(dir);
+                const entries = dir.readdirSync();
+                for (const e of entries) {
+                    if (!filter || filter(e)) {
+                        if (!results.write(withFileTypes ? e : e.fullpath())) {
+                            paused = true;
+                        }
+                    }
+                }
+                processing--;
+                for (const e of entries) {
+                    let r = e;
+                    if (e.isSymbolicLink()) {
+                        if (!(follow && (r = e.realpathSync())))
+                            continue;
+                        if (r.isUnknown())
+                            r.lstatSync();
+                    }
+                    if (r.shouldWalk(dirs, walkFilter)) {
+                        queue.push(r);
+                    }
+                }
+            }
+            if (paused && !results.flowing)
+                results.once('drain', process);
+        };
+        process();
+        return results;
+    }
+    chdir(path = this.cwd) {
+        const oldCwd = this.cwd;
+        this.cwd = typeof path === 'string' ? this.cwd.resolve(path) : path;
+        this.cwd[setAsCwd](oldCwd);
+    }
+}
+/**
+ * Windows implementation of {@link PathScurryBase}
+ *
+ * Defaults to case insensitve, uses `'\\'` to generate path strings.  Uses
+ * {@link PathWin32} for Path objects.
+ */
+class PathScurryWin32 extends PathScurryBase {
+    /**
+     * separator for generating path strings
+     */
+    sep = '\\';
+    constructor(cwd = process.cwd(), opts = {}) {
+        const { nocase = true } = opts;
+        super(cwd, external_node_path_namespaceObject.win32, '\\', { ...opts, nocase });
+        this.nocase = nocase;
+        for (let p = this.cwd; p; p = p.parent) {
+            p.nocase = this.nocase;
+        }
+    }
+    /**
+     * @internal
+     */
+    parseRootPath(dir) {
+        // if the path starts with a single separator, it's not a UNC, and we'll
+        // just get separator as the root, and driveFromUNC will return \
+        // In that case, mount \ on the root from the cwd.
+        return external_node_path_namespaceObject.win32.parse(dir).root.toUpperCase();
+    }
+    /**
+     * @internal
+     */
+    newRoot(fs) {
+        return new PathWin32(this.rootPath, IFDIR, undefined, this.roots, this.nocase, this.childrenCache(), { fs });
+    }
+    /**
+     * Return true if the provided path string is an absolute path
+     */
+    isAbsolute(p) {
+        return (p.startsWith('/') || p.startsWith('\\') || /^[a-z]:(\/|\\)/i.test(p));
+    }
+}
+/**
+ * {@link PathScurryBase} implementation for all posix systems other than Darwin.
+ *
+ * Defaults to case-sensitive matching, uses `'/'` to generate path strings.
+ *
+ * Uses {@link PathPosix} for Path objects.
+ */
+class PathScurryPosix extends PathScurryBase {
+    /**
+     * separator for generating path strings
+     */
+    sep = '/';
+    constructor(cwd = process.cwd(), opts = {}) {
+        const { nocase = false } = opts;
+        super(cwd, external_node_path_namespaceObject.posix, '/', { ...opts, nocase });
+        this.nocase = nocase;
+    }
+    /**
+     * @internal
+     */
+    parseRootPath(_dir) {
+        return '/';
+    }
+    /**
+     * @internal
+     */
+    newRoot(fs) {
+        return new PathPosix(this.rootPath, IFDIR, undefined, this.roots, this.nocase, this.childrenCache(), { fs });
+    }
+    /**
+     * Return true if the provided path string is an absolute path
+     */
+    isAbsolute(p) {
+        return p.startsWith('/');
+    }
+}
+/**
+ * {@link PathScurryBase} implementation for Darwin (macOS) systems.
+ *
+ * Defaults to case-insensitive matching, uses `'/'` for generating path
+ * strings.
+ *
+ * Uses {@link PathPosix} for Path objects.
+ */
+class PathScurryDarwin extends PathScurryPosix {
+    constructor(cwd = process.cwd(), opts = {}) {
+        const { nocase = true } = opts;
+        super(cwd, { ...opts, nocase });
+    }
+}
+/**
+ * Default {@link PathBase} implementation for the current platform.
+ *
+ * {@link PathWin32} on Windows systems, {@link PathPosix} on all others.
+ */
+const Path = process.platform === 'win32' ? PathWin32 : PathPosix;
+/**
+ * Default {@link PathScurryBase} implementation for the current platform.
+ *
+ * {@link PathScurryWin32} on Windows systems, {@link PathScurryDarwin} on
+ * Darwin (macOS) systems, {@link PathScurryPosix} on all others.
+ */
+const PathScurry = process.platform === 'win32' ? PathScurryWin32
+    : process.platform === 'darwin' ? PathScurryDarwin
+        : PathScurryPosix;
+//# sourceMappingURL=index.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/dist/esm/pattern.js
+// this is just a very light wrapper around 2 arrays with an offset index
+
+const isPatternList = (pl) => pl.length >= 1;
+const isGlobList = (gl) => gl.length >= 1;
+/**
+ * An immutable-ish view on an array of glob parts and their parsed
+ * results
+ */
+class Pattern {
+    #patternList;
+    #globList;
+    #index;
+    length;
+    #platform;
+    #rest;
+    #globString;
+    #isDrive;
+    #isUNC;
+    #isAbsolute;
+    #followGlobstar = true;
+    constructor(patternList, globList, index, platform) {
+        if (!isPatternList(patternList)) {
+            throw new TypeError('empty pattern list');
+        }
+        if (!isGlobList(globList)) {
+            throw new TypeError('empty glob list');
+        }
+        if (globList.length !== patternList.length) {
+            throw new TypeError('mismatched pattern list and glob list lengths');
+        }
+        this.length = patternList.length;
+        if (index < 0 || index >= this.length) {
+            throw new TypeError('index out of range');
+        }
+        this.#patternList = patternList;
+        this.#globList = globList;
+        this.#index = index;
+        this.#platform = platform;
+        // normalize root entries of absolute patterns on initial creation.
+        if (this.#index === 0) {
+            // c: => ['c:/']
+            // C:/ => ['C:/']
+            // C:/x => ['C:/', 'x']
+            // //host/share => ['//host/share/']
+            // //host/share/ => ['//host/share/']
+            // //host/share/x => ['//host/share/', 'x']
+            // /etc => ['/', 'etc']
+            // / => ['/']
+            if (this.isUNC()) {
+                // '' / '' / 'host' / 'share'
+                const [p0, p1, p2, p3, ...prest] = this.#patternList;
+                const [g0, g1, g2, g3, ...grest] = this.#globList;
+                if (prest[0] === '') {
+                    // ends in /
+                    prest.shift();
+                    grest.shift();
+                }
+                const p = [p0, p1, p2, p3, ''].join('/');
+                const g = [g0, g1, g2, g3, ''].join('/');
+                this.#patternList = [p, ...prest];
+                this.#globList = [g, ...grest];
+                this.length = this.#patternList.length;
+            }
+            else if (this.isDrive() || this.isAbsolute()) {
+                const [p1, ...prest] = this.#patternList;
+                const [g1, ...grest] = this.#globList;
+                if (prest[0] === '') {
+                    // ends in /
+                    prest.shift();
+                    grest.shift();
+                }
+                const p = p1 + '/';
+                const g = g1 + '/';
+                this.#patternList = [p, ...prest];
+                this.#globList = [g, ...grest];
+                this.length = this.#patternList.length;
+            }
+        }
+    }
+    /**
+     * The first entry in the parsed list of patterns
+     */
+    pattern() {
+        return this.#patternList[this.#index];
+    }
+    /**
+     * true of if pattern() returns a string
+     */
+    isString() {
+        return typeof this.#patternList[this.#index] === 'string';
+    }
+    /**
+     * true of if pattern() returns GLOBSTAR
+     */
+    isGlobstar() {
+        return this.#patternList[this.#index] === GLOBSTAR;
+    }
+    /**
+     * true if pattern() returns a regexp
+     */
+    isRegExp() {
+        return this.#patternList[this.#index] instanceof RegExp;
+    }
+    /**
+     * The /-joined set of glob parts that make up this pattern
+     */
+    globString() {
+        return (this.#globString =
+            this.#globString ||
+                (this.#index === 0 ?
+                    this.isAbsolute() ?
+                        this.#globList[0] + this.#globList.slice(1).join('/')
+                        : this.#globList.join('/')
+                    : this.#globList.slice(this.#index).join('/')));
+    }
+    /**
+     * true if there are more pattern parts after this one
+     */
+    hasMore() {
+        return this.length > this.#index + 1;
+    }
+    /**
+     * The rest of the pattern after this part, or null if this is the end
+     */
+    rest() {
+        if (this.#rest !== undefined)
+            return this.#rest;
+        if (!this.hasMore())
+            return (this.#rest = null);
+        this.#rest = new Pattern(this.#patternList, this.#globList, this.#index + 1, this.#platform);
+        this.#rest.#isAbsolute = this.#isAbsolute;
+        this.#rest.#isUNC = this.#isUNC;
+        this.#rest.#isDrive = this.#isDrive;
+        return this.#rest;
+    }
+    /**
+     * true if the pattern represents a //unc/path/ on windows
+     */
+    isUNC() {
+        const pl = this.#patternList;
+        return this.#isUNC !== undefined ?
+            this.#isUNC
+            : (this.#isUNC =
+                this.#platform === 'win32' &&
+                    this.#index === 0 &&
+                    pl[0] === '' &&
+                    pl[1] === '' &&
+                    typeof pl[2] === 'string' &&
+                    !!pl[2] &&
+                    typeof pl[3] === 'string' &&
+                    !!pl[3]);
+    }
+    // pattern like C:/...
+    // split = ['C:', ...]
+    // XXX: would be nice to handle patterns like `c:*` to test the cwd
+    // in c: for *, but I don't know of a way to even figure out what that
+    // cwd is without actually chdir'ing into it?
+    /**
+     * True if the pattern starts with a drive letter on Windows
+     */
+    isDrive() {
+        const pl = this.#patternList;
+        return this.#isDrive !== undefined ?
+            this.#isDrive
+            : (this.#isDrive =
+                this.#platform === 'win32' &&
+                    this.#index === 0 &&
+                    this.length > 1 &&
+                    typeof pl[0] === 'string' &&
+                    /^[a-z]:$/i.test(pl[0]));
+    }
+    // pattern = '/' or '/...' or '/x/...'
+    // split = ['', ''] or ['', ...] or ['', 'x', ...]
+    // Drive and UNC both considered absolute on windows
+    /**
+     * True if the pattern is rooted on an absolute path
+     */
+    isAbsolute() {
+        const pl = this.#patternList;
+        return this.#isAbsolute !== undefined ?
+            this.#isAbsolute
+            : (this.#isAbsolute =
+                (pl[0] === '' && pl.length > 1) ||
+                    this.isDrive() ||
+                    this.isUNC());
+    }
+    /**
+     * consume the root of the pattern, and return it
+     */
+    root() {
+        const p = this.#patternList[0];
+        return (typeof p === 'string' && this.isAbsolute() && this.#index === 0) ?
+            p
+            : '';
+    }
+    /**
+     * Check to see if the current globstar pattern is allowed to follow
+     * a symbolic link.
+     */
+    checkFollowGlobstar() {
+        return !(this.#index === 0 ||
+            !this.isGlobstar() ||
+            !this.#followGlobstar);
+    }
+    /**
+     * Mark that the current globstar pattern is following a symbolic link
+     */
+    markFollowGlobstar() {
+        if (this.#index === 0 || !this.isGlobstar() || !this.#followGlobstar)
+            return false;
+        this.#followGlobstar = false;
+        return true;
+    }
+}
+//# sourceMappingURL=pattern.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/dist/esm/ignore.js
+// give it a pattern, and it'll be able to tell you if
+// a given path should be ignored.
+// Ignoring a path ignores its children if the pattern ends in /**
+// Ignores are always parsed in dot:true mode
+
+
+const ignore_defaultPlatform = (typeof process === 'object' &&
+    process &&
+    typeof process.platform === 'string') ?
+    process.platform
+    : 'linux';
+/**
+ * Class used to process ignored patterns
+ */
+class Ignore {
+    relative;
+    relativeChildren;
+    absolute;
+    absoluteChildren;
+    platform;
+    mmopts;
+    constructor(ignored, { nobrace, nocase, noext, noglobstar, platform = ignore_defaultPlatform, }) {
+        this.relative = [];
+        this.absolute = [];
+        this.relativeChildren = [];
+        this.absoluteChildren = [];
+        this.platform = platform;
+        this.mmopts = {
+            dot: true,
+            nobrace,
+            nocase,
+            noext,
+            noglobstar,
+            optimizationLevel: 2,
+            platform,
+            nocomment: true,
+            nonegate: true,
+        };
+        for (const ign of ignored)
+            this.add(ign);
+    }
+    add(ign) {
+        // this is a little weird, but it gives us a clean set of optimized
+        // minimatch matchers, without getting tripped up if one of them
+        // ends in /** inside a brace section, and it's only inefficient at
+        // the start of the walk, not along it.
+        // It'd be nice if the Pattern class just had a .test() method, but
+        // handling globstars is a bit of a pita, and that code already lives
+        // in minimatch anyway.
+        // Another way would be if maybe Minimatch could take its set/globParts
+        // as an option, and then we could at least just use Pattern to test
+        // for absolute-ness.
+        // Yet another way, Minimatch could take an array of glob strings, and
+        // a cwd option, and do the right thing.
+        const mm = new Minimatch(ign, this.mmopts);
+        for (let i = 0; i < mm.set.length; i++) {
+            const parsed = mm.set[i];
+            const globParts = mm.globParts[i];
+            /* c8 ignore start */
+            if (!parsed || !globParts) {
+                throw new Error('invalid pattern object');
+            }
+            // strip off leading ./ portions
+            // https://github.com/isaacs/node-glob/issues/570
+            while (parsed[0] === '.' && globParts[0] === '.') {
+                parsed.shift();
+                globParts.shift();
+            }
+            /* c8 ignore stop */
+            const p = new Pattern(parsed, globParts, 0, this.platform);
+            const m = new Minimatch(p.globString(), this.mmopts);
+            const children = globParts[globParts.length - 1] === '**';
+            const absolute = p.isAbsolute();
+            if (absolute)
+                this.absolute.push(m);
+            else
+                this.relative.push(m);
+            if (children) {
+                if (absolute)
+                    this.absoluteChildren.push(m);
+                else
+                    this.relativeChildren.push(m);
+            }
+        }
+    }
+    ignored(p) {
+        const fullpath = p.fullpath();
+        const fullpaths = `${fullpath}/`;
+        const relative = p.relative() || '.';
+        const relatives = `${relative}/`;
+        for (const m of this.relative) {
+            if (m.match(relative) || m.match(relatives))
+                return true;
+        }
+        for (const m of this.absolute) {
+            if (m.match(fullpath) || m.match(fullpaths))
+                return true;
+        }
+        return false;
+    }
+    childrenIgnored(p) {
+        const fullpath = p.fullpath() + '/';
+        const relative = (p.relative() || '.') + '/';
+        for (const m of this.relativeChildren) {
+            if (m.match(relative))
+                return true;
+        }
+        for (const m of this.absoluteChildren) {
+            if (m.match(fullpath))
+                return true;
+        }
+        return false;
+    }
+}
+//# sourceMappingURL=ignore.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/dist/esm/processor.js
+// synchronous utility for filtering entries and calculating subwalks
+
+/**
+ * A cache of which patterns have been processed for a given Path
+ */
+class HasWalkedCache {
+    store;
+    constructor(store = new Map()) {
+        this.store = store;
+    }
+    copy() {
+        return new HasWalkedCache(new Map(this.store));
+    }
+    hasWalked(target, pattern) {
+        return this.store.get(target.fullpath())?.has(pattern.globString());
+    }
+    storeWalked(target, pattern) {
+        const fullpath = target.fullpath();
+        const cached = this.store.get(fullpath);
+        if (cached)
+            cached.add(pattern.globString());
+        else
+            this.store.set(fullpath, new Set([pattern.globString()]));
+    }
+}
+/**
+ * A record of which paths have been matched in a given walk step,
+ * and whether they only are considered a match if they are a directory,
+ * and whether their absolute or relative path should be returned.
+ */
+class MatchRecord {
+    store = new Map();
+    add(target, absolute, ifDir) {
+        const n = (absolute ? 2 : 0) | (ifDir ? 1 : 0);
+        const current = this.store.get(target);
+        this.store.set(target, current === undefined ? n : n & current);
+    }
+    // match, absolute, ifdir
+    entries() {
+        return [...this.store.entries()].map(([path, n]) => [
+            path,
+            !!(n & 2),
+            !!(n & 1),
+        ]);
+    }
+}
+/**
+ * A collection of patterns that must be processed in a subsequent step
+ * for a given path.
+ */
+class SubWalks {
+    store = new Map();
+    add(target, pattern) {
+        if (!target.canReaddir()) {
+            return;
+        }
+        const subs = this.store.get(target);
+        if (subs) {
+            if (!subs.find(p => p.globString() === pattern.globString())) {
+                subs.push(pattern);
+            }
+        }
+        else
+            this.store.set(target, [pattern]);
+    }
+    get(target) {
+        const subs = this.store.get(target);
+        /* c8 ignore start */
+        if (!subs) {
+            throw new Error('attempting to walk unknown path');
+        }
+        /* c8 ignore stop */
+        return subs;
+    }
+    entries() {
+        return this.keys().map(k => [k, this.store.get(k)]);
+    }
+    keys() {
+        return [...this.store.keys()].filter(t => t.canReaddir());
+    }
+}
+/**
+ * The class that processes patterns for a given path.
+ *
+ * Handles child entry filtering, and determining whether a path's
+ * directory contents must be read.
+ */
+class Processor {
+    hasWalkedCache;
+    matches = new MatchRecord();
+    subwalks = new SubWalks();
+    patterns;
+    follow;
+    dot;
+    opts;
+    constructor(opts, hasWalkedCache) {
+        this.opts = opts;
+        this.follow = !!opts.follow;
+        this.dot = !!opts.dot;
+        this.hasWalkedCache =
+            hasWalkedCache ? hasWalkedCache.copy() : new HasWalkedCache();
+    }
+    processPatterns(target, patterns) {
+        this.patterns = patterns;
+        const processingSet = patterns.map(p => [target, p]);
+        // map of paths to the magic-starting subwalks they need to walk
+        // first item in patterns is the filter
+        for (let [t, pattern] of processingSet) {
+            this.hasWalkedCache.storeWalked(t, pattern);
+            const root = pattern.root();
+            const absolute = pattern.isAbsolute() && this.opts.absolute !== false;
+            // start absolute patterns at root
+            if (root) {
+                t = t.resolve(root === '/' && this.opts.root !== undefined ?
+                    this.opts.root
+                    : root);
+                const rest = pattern.rest();
+                if (!rest) {
+                    this.matches.add(t, true, false);
+                    continue;
+                }
+                else {
+                    pattern = rest;
+                }
+            }
+            if (t.isENOENT())
+                continue;
+            let p;
+            let rest;
+            let changed = false;
+            while (typeof (p = pattern.pattern()) === 'string' &&
+                (rest = pattern.rest())) {
+                const c = t.resolve(p);
+                t = c;
+                pattern = rest;
+                changed = true;
+            }
+            p = pattern.pattern();
+            rest = pattern.rest();
+            if (changed) {
+                if (this.hasWalkedCache.hasWalked(t, pattern))
+                    continue;
+                this.hasWalkedCache.storeWalked(t, pattern);
+            }
+            // now we have either a final string for a known entry,
+            // more strings for an unknown entry,
+            // or a pattern starting with magic, mounted on t.
+            if (typeof p === 'string') {
+                // must not be final entry, otherwise we would have
+                // concatenated it earlier.
+                const ifDir = p === '..' || p === '' || p === '.';
+                this.matches.add(t.resolve(p), absolute, ifDir);
+                continue;
+            }
+            else if (p === GLOBSTAR) {
+                // if no rest, match and subwalk pattern
+                // if rest, process rest and subwalk pattern
+                // if it's a symlink, but we didn't get here by way of a
+                // globstar match (meaning it's the first time THIS globstar
+                // has traversed a symlink), then we follow it. Otherwise, stop.
+                if (!t.isSymbolicLink() ||
+                    this.follow ||
+                    pattern.checkFollowGlobstar()) {
+                    this.subwalks.add(t, pattern);
+                }
+                const rp = rest?.pattern();
+                const rrest = rest?.rest();
+                if (!rest || ((rp === '' || rp === '.') && !rrest)) {
+                    // only HAS to be a dir if it ends in **/ or **/.
+                    // but ending in ** will match files as well.
+                    this.matches.add(t, absolute, rp === '' || rp === '.');
+                }
+                else {
+                    if (rp === '..') {
+                        // this would mean you're matching **/.. at the fs root,
+                        // and no thanks, I'm not gonna test that specific case.
+                        /* c8 ignore start */
+                        const tp = t.parent || t;
+                        /* c8 ignore stop */
+                        if (!rrest)
+                            this.matches.add(tp, absolute, true);
+                        else if (!this.hasWalkedCache.hasWalked(tp, rrest)) {
+                            this.subwalks.add(tp, rrest);
+                        }
+                    }
+                }
+            }
+            else if (p instanceof RegExp) {
+                this.subwalks.add(t, pattern);
+            }
+        }
+        return this;
+    }
+    subwalkTargets() {
+        return this.subwalks.keys();
+    }
+    child() {
+        return new Processor(this.opts, this.hasWalkedCache);
+    }
+    // return a new Processor containing the subwalks for each
+    // child entry, and a set of matches, and
+    // a hasWalkedCache that's a copy of this one
+    // then we're going to call
+    filterEntries(parent, entries) {
+        const patterns = this.subwalks.get(parent);
+        // put matches and entry walks into the results processor
+        const results = this.child();
+        for (const e of entries) {
+            for (const pattern of patterns) {
+                const absolute = pattern.isAbsolute();
+                const p = pattern.pattern();
+                const rest = pattern.rest();
+                if (p === GLOBSTAR) {
+                    results.testGlobstar(e, pattern, rest, absolute);
+                }
+                else if (p instanceof RegExp) {
+                    results.testRegExp(e, p, rest, absolute);
+                }
+                else {
+                    results.testString(e, p, rest, absolute);
+                }
+            }
+        }
+        return results;
+    }
+    testGlobstar(e, pattern, rest, absolute) {
+        if (this.dot || !e.name.startsWith('.')) {
+            if (!pattern.hasMore()) {
+                this.matches.add(e, absolute, false);
+            }
+            if (e.canReaddir()) {
+                // if we're in follow mode or it's not a symlink, just keep
+                // testing the same pattern. If there's more after the globstar,
+                // then this symlink consumes the globstar. If not, then we can
+                // follow at most ONE symlink along the way, so we mark it, which
+                // also checks to ensure that it wasn't already marked.
+                if (this.follow || !e.isSymbolicLink()) {
+                    this.subwalks.add(e, pattern);
+                }
+                else if (e.isSymbolicLink()) {
+                    if (rest && pattern.checkFollowGlobstar()) {
+                        this.subwalks.add(e, rest);
+                    }
+                    else if (pattern.markFollowGlobstar()) {
+                        this.subwalks.add(e, pattern);
+                    }
+                }
+            }
+        }
+        // if the NEXT thing matches this entry, then also add
+        // the rest.
+        if (rest) {
+            const rp = rest.pattern();
+            if (typeof rp === 'string' &&
+                // dots and empty were handled already
+                rp !== '..' &&
+                rp !== '' &&
+                rp !== '.') {
+                this.testString(e, rp, rest.rest(), absolute);
+            }
+            else if (rp === '..') {
+                /* c8 ignore start */
+                const ep = e.parent || e;
+                /* c8 ignore stop */
+                this.subwalks.add(ep, rest);
+            }
+            else if (rp instanceof RegExp) {
+                this.testRegExp(e, rp, rest.rest(), absolute);
+            }
+        }
+    }
+    testRegExp(e, p, rest, absolute) {
+        if (!p.test(e.name))
+            return;
+        if (!rest) {
+            this.matches.add(e, absolute, false);
+        }
+        else {
+            this.subwalks.add(e, rest);
+        }
+    }
+    testString(e, p, rest, absolute) {
+        // should never happen?
+        if (!e.isNamed(p))
+            return;
+        if (!rest) {
+            this.matches.add(e, absolute, false);
+        }
+        else {
+            this.subwalks.add(e, rest);
+        }
+    }
+}
+//# sourceMappingURL=processor.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/dist/esm/walker.js
+/**
+ * Single-use utility classes to provide functionality to the {@link Glob}
+ * methods.
+ *
+ * @module
+ */
+
+
+
+const makeIgnore = (ignore, opts) => typeof ignore === 'string' ? new Ignore([ignore], opts)
+    : Array.isArray(ignore) ? new Ignore(ignore, opts)
+        : ignore;
+/**
+ * basic walking utilities that all the glob walker types use
+ */
+class GlobUtil {
+    path;
+    patterns;
+    opts;
+    seen = new Set();
+    paused = false;
+    aborted = false;
+    #onResume = [];
+    #ignore;
+    #sep;
+    signal;
+    maxDepth;
+    includeChildMatches;
+    constructor(patterns, path, opts) {
+        this.patterns = patterns;
+        this.path = path;
+        this.opts = opts;
+        this.#sep = !opts.posix && opts.platform === 'win32' ? '\\' : '/';
+        this.includeChildMatches = opts.includeChildMatches !== false;
+        if (opts.ignore || !this.includeChildMatches) {
+            this.#ignore = makeIgnore(opts.ignore ?? [], opts);
+            if (!this.includeChildMatches &&
+                typeof this.#ignore.add !== 'function') {
+                const m = 'cannot ignore child matches, ignore lacks add() method.';
+                throw new Error(m);
+            }
+        }
+        // ignore, always set with maxDepth, but it's optional on the
+        // GlobOptions type
+        /* c8 ignore start */
+        this.maxDepth = opts.maxDepth || Infinity;
+        /* c8 ignore stop */
+        if (opts.signal) {
+            this.signal = opts.signal;
+            this.signal.addEventListener('abort', () => {
+                this.#onResume.length = 0;
+            });
+        }
+    }
+    #ignored(path) {
+        return this.seen.has(path) || !!this.#ignore?.ignored?.(path);
+    }
+    #childrenIgnored(path) {
+        return !!this.#ignore?.childrenIgnored?.(path);
+    }
+    // backpressure mechanism
+    pause() {
+        this.paused = true;
+    }
+    resume() {
+        /* c8 ignore start */
+        if (this.signal?.aborted)
+            return;
+        /* c8 ignore stop */
+        this.paused = false;
+        let fn = undefined;
+        while (!this.paused && (fn = this.#onResume.shift())) {
+            fn();
+        }
+    }
+    onResume(fn) {
+        if (this.signal?.aborted)
+            return;
+        /* c8 ignore start */
+        if (!this.paused) {
+            fn();
+        }
+        else {
+            /* c8 ignore stop */
+            this.#onResume.push(fn);
+        }
+    }
+    // do the requisite realpath/stat checking, and return the path
+    // to add or undefined to filter it out.
+    async matchCheck(e, ifDir) {
+        if (ifDir && this.opts.nodir)
+            return undefined;
+        let rpc;
+        if (this.opts.realpath) {
+            rpc = e.realpathCached() || (await e.realpath());
+            if (!rpc)
+                return undefined;
+            e = rpc;
+        }
+        const needStat = e.isUnknown() || this.opts.stat;
+        const s = needStat ? await e.lstat() : e;
+        if (this.opts.follow && this.opts.nodir && s?.isSymbolicLink()) {
+            const target = await s.realpath();
+            /* c8 ignore start */
+            if (target && (target.isUnknown() || this.opts.stat)) {
+                await target.lstat();
+            }
+            /* c8 ignore stop */
+        }
+        return this.matchCheckTest(s, ifDir);
+    }
+    matchCheckTest(e, ifDir) {
+        return (e &&
+            (this.maxDepth === Infinity || e.depth() <= this.maxDepth) &&
+            (!ifDir || e.canReaddir()) &&
+            (!this.opts.nodir || !e.isDirectory()) &&
+            (!this.opts.nodir ||
+                !this.opts.follow ||
+                !e.isSymbolicLink() ||
+                !e.realpathCached()?.isDirectory()) &&
+            !this.#ignored(e)) ?
+            e
+            : undefined;
+    }
+    matchCheckSync(e, ifDir) {
+        if (ifDir && this.opts.nodir)
+            return undefined;
+        let rpc;
+        if (this.opts.realpath) {
+            rpc = e.realpathCached() || e.realpathSync();
+            if (!rpc)
+                return undefined;
+            e = rpc;
+        }
+        const needStat = e.isUnknown() || this.opts.stat;
+        const s = needStat ? e.lstatSync() : e;
+        if (this.opts.follow && this.opts.nodir && s?.isSymbolicLink()) {
+            const target = s.realpathSync();
+            if (target && (target?.isUnknown() || this.opts.stat)) {
+                target.lstatSync();
+            }
+        }
+        return this.matchCheckTest(s, ifDir);
+    }
+    matchFinish(e, absolute) {
+        if (this.#ignored(e))
+            return;
+        // we know we have an ignore if this is false, but TS doesn't
+        if (!this.includeChildMatches && this.#ignore?.add) {
+            const ign = `${e.relativePosix()}/**`;
+            this.#ignore.add(ign);
+        }
+        const abs = this.opts.absolute === undefined ? absolute : this.opts.absolute;
+        this.seen.add(e);
+        const mark = this.opts.mark && e.isDirectory() ? this.#sep : '';
+        // ok, we have what we need!
+        if (this.opts.withFileTypes) {
+            this.matchEmit(e);
+        }
+        else if (abs) {
+            const abs = this.opts.posix ? e.fullpathPosix() : e.fullpath();
+            this.matchEmit(abs + mark);
+        }
+        else {
+            const rel = this.opts.posix ? e.relativePosix() : e.relative();
+            const pre = this.opts.dotRelative && !rel.startsWith('..' + this.#sep) ?
+                '.' + this.#sep
+                : '';
+            this.matchEmit(!rel ? '.' + mark : pre + rel + mark);
+        }
+    }
+    async match(e, absolute, ifDir) {
+        const p = await this.matchCheck(e, ifDir);
+        if (p)
+            this.matchFinish(p, absolute);
+    }
+    matchSync(e, absolute, ifDir) {
+        const p = this.matchCheckSync(e, ifDir);
+        if (p)
+            this.matchFinish(p, absolute);
+    }
+    walkCB(target, patterns, cb) {
+        /* c8 ignore start */
+        if (this.signal?.aborted)
+            cb();
+        /* c8 ignore stop */
+        this.walkCB2(target, patterns, new Processor(this.opts), cb);
+    }
+    walkCB2(target, patterns, processor, cb) {
+        if (this.#childrenIgnored(target))
+            return cb();
+        if (this.signal?.aborted)
+            cb();
+        if (this.paused) {
+            this.onResume(() => this.walkCB2(target, patterns, processor, cb));
+            return;
+        }
+        processor.processPatterns(target, patterns);
+        // done processing.  all of the above is sync, can be abstracted out.
+        // subwalks is a map of paths to the entry filters they need
+        // matches is a map of paths to [absolute, ifDir] tuples.
+        let tasks = 1;
+        const next = () => {
+            if (--tasks === 0)
+                cb();
+        };
+        for (const [m, absolute, ifDir] of processor.matches.entries()) {
+            if (this.#ignored(m))
+                continue;
+            tasks++;
+            this.match(m, absolute, ifDir).then(() => next());
+        }
+        for (const t of processor.subwalkTargets()) {
+            if (this.maxDepth !== Infinity && t.depth() >= this.maxDepth) {
+                continue;
+            }
+            tasks++;
+            const childrenCached = t.readdirCached();
+            if (t.calledReaddir())
+                this.walkCB3(t, childrenCached, processor, next);
+            else {
+                t.readdirCB((_, entries) => this.walkCB3(t, entries, processor, next), true);
+            }
+        }
+        next();
+    }
+    walkCB3(target, entries, processor, cb) {
+        processor = processor.filterEntries(target, entries);
+        let tasks = 1;
+        const next = () => {
+            if (--tasks === 0)
+                cb();
+        };
+        for (const [m, absolute, ifDir] of processor.matches.entries()) {
+            if (this.#ignored(m))
+                continue;
+            tasks++;
+            this.match(m, absolute, ifDir).then(() => next());
+        }
+        for (const [target, patterns] of processor.subwalks.entries()) {
+            tasks++;
+            this.walkCB2(target, patterns, processor.child(), next);
+        }
+        next();
+    }
+    walkCBSync(target, patterns, cb) {
+        /* c8 ignore start */
+        if (this.signal?.aborted)
+            cb();
+        /* c8 ignore stop */
+        this.walkCB2Sync(target, patterns, new Processor(this.opts), cb);
+    }
+    walkCB2Sync(target, patterns, processor, cb) {
+        if (this.#childrenIgnored(target))
+            return cb();
+        if (this.signal?.aborted)
+            cb();
+        if (this.paused) {
+            this.onResume(() => this.walkCB2Sync(target, patterns, processor, cb));
+            return;
+        }
+        processor.processPatterns(target, patterns);
+        // done processing.  all of the above is sync, can be abstracted out.
+        // subwalks is a map of paths to the entry filters they need
+        // matches is a map of paths to [absolute, ifDir] tuples.
+        let tasks = 1;
+        const next = () => {
+            if (--tasks === 0)
+                cb();
+        };
+        for (const [m, absolute, ifDir] of processor.matches.entries()) {
+            if (this.#ignored(m))
+                continue;
+            this.matchSync(m, absolute, ifDir);
+        }
+        for (const t of processor.subwalkTargets()) {
+            if (this.maxDepth !== Infinity && t.depth() >= this.maxDepth) {
+                continue;
+            }
+            tasks++;
+            const children = t.readdirSync();
+            this.walkCB3Sync(t, children, processor, next);
+        }
+        next();
+    }
+    walkCB3Sync(target, entries, processor, cb) {
+        processor = processor.filterEntries(target, entries);
+        let tasks = 1;
+        const next = () => {
+            if (--tasks === 0)
+                cb();
+        };
+        for (const [m, absolute, ifDir] of processor.matches.entries()) {
+            if (this.#ignored(m))
+                continue;
+            this.matchSync(m, absolute, ifDir);
+        }
+        for (const [target, patterns] of processor.subwalks.entries()) {
+            tasks++;
+            this.walkCB2Sync(target, patterns, processor.child(), next);
+        }
+        next();
+    }
+}
+class GlobWalker extends GlobUtil {
+    matches = new Set();
+    constructor(patterns, path, opts) {
+        super(patterns, path, opts);
+    }
+    matchEmit(e) {
+        this.matches.add(e);
+    }
+    async walk() {
+        if (this.signal?.aborted)
+            throw this.signal.reason;
+        if (this.path.isUnknown()) {
+            await this.path.lstat();
+        }
+        await new Promise((res, rej) => {
+            this.walkCB(this.path, this.patterns, () => {
+                if (this.signal?.aborted) {
+                    rej(this.signal.reason);
+                }
+                else {
+                    res(this.matches);
+                }
+            });
+        });
+        return this.matches;
+    }
+    walkSync() {
+        if (this.signal?.aborted)
+            throw this.signal.reason;
+        if (this.path.isUnknown()) {
+            this.path.lstatSync();
+        }
+        // nothing for the callback to do, because this never pauses
+        this.walkCBSync(this.path, this.patterns, () => {
+            if (this.signal?.aborted)
+                throw this.signal.reason;
+        });
+        return this.matches;
+    }
+}
+class GlobStream extends GlobUtil {
+    results;
+    constructor(patterns, path, opts) {
+        super(patterns, path, opts);
+        this.results = new Minipass({
+            signal: this.signal,
+            objectMode: true,
+        });
+        this.results.on('drain', () => this.resume());
+        this.results.on('resume', () => this.resume());
+    }
+    matchEmit(e) {
+        this.results.write(e);
+        if (!this.results.flowing)
+            this.pause();
+    }
+    stream() {
+        const target = this.path;
+        if (target.isUnknown()) {
+            target.lstat().then(() => {
+                this.walkCB(target, this.patterns, () => this.results.end());
+            });
+        }
+        else {
+            this.walkCB(target, this.patterns, () => this.results.end());
+        }
+        return this.results;
+    }
+    streamSync() {
+        if (this.path.isUnknown()) {
+            this.path.lstatSync();
+        }
+        this.walkCBSync(this.path, this.patterns, () => this.results.end());
+        return this.results;
+    }
+}
+//# sourceMappingURL=walker.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/dist/esm/glob.js
+
+
+
+
+
+// if no process global, just call it linux.
+// so we default to case-sensitive, / separators
+const glob_defaultPlatform = (typeof process === 'object' &&
+    process &&
+    typeof process.platform === 'string') ?
+    process.platform
+    : 'linux';
+/**
+ * An object that can perform glob pattern traversals.
+ */
+class Glob {
+    absolute;
+    cwd;
+    root;
+    dot;
+    dotRelative;
+    follow;
+    ignore;
+    magicalBraces;
+    mark;
+    matchBase;
+    maxDepth;
+    nobrace;
+    nocase;
+    nodir;
+    noext;
+    noglobstar;
+    pattern;
+    platform;
+    realpath;
+    scurry;
+    stat;
+    signal;
+    windowsPathsNoEscape;
+    withFileTypes;
+    includeChildMatches;
+    /**
+     * The options provided to the constructor.
+     */
+    opts;
+    /**
+     * An array of parsed immutable {@link Pattern} objects.
+     */
+    patterns;
+    /**
+     * All options are stored as properties on the `Glob` object.
+     *
+     * See {@link GlobOptions} for full options descriptions.
+     *
+     * Note that a previous `Glob` object can be passed as the
+     * `GlobOptions` to another `Glob` instantiation to re-use settings
+     * and caches with a new pattern.
+     *
+     * Traversal functions can be called multiple times to run the walk
+     * again.
+     */
+    constructor(pattern, opts) {
+        /* c8 ignore start */
+        if (!opts)
+            throw new TypeError('glob options required');
+        /* c8 ignore stop */
+        this.withFileTypes = !!opts.withFileTypes;
+        this.signal = opts.signal;
+        this.follow = !!opts.follow;
+        this.dot = !!opts.dot;
+        this.dotRelative = !!opts.dotRelative;
+        this.nodir = !!opts.nodir;
+        this.mark = !!opts.mark;
+        if (!opts.cwd) {
+            this.cwd = '';
+        }
+        else if (opts.cwd instanceof URL || opts.cwd.startsWith('file://')) {
+            opts.cwd = (0,external_node_url_namespaceObject.fileURLToPath)(opts.cwd);
+        }
+        this.cwd = opts.cwd || '';
+        this.root = opts.root;
+        this.magicalBraces = !!opts.magicalBraces;
+        this.nobrace = !!opts.nobrace;
+        this.noext = !!opts.noext;
+        this.realpath = !!opts.realpath;
+        this.absolute = opts.absolute;
+        this.includeChildMatches = opts.includeChildMatches !== false;
+        this.noglobstar = !!opts.noglobstar;
+        this.matchBase = !!opts.matchBase;
+        this.maxDepth =
+            typeof opts.maxDepth === 'number' ? opts.maxDepth : Infinity;
+        this.stat = !!opts.stat;
+        this.ignore = opts.ignore;
+        if (this.withFileTypes && this.absolute !== undefined) {
+            throw new Error('cannot set absolute and withFileTypes:true');
+        }
+        if (typeof pattern === 'string') {
+            pattern = [pattern];
+        }
+        this.windowsPathsNoEscape =
+            !!opts.windowsPathsNoEscape ||
+                opts.allowWindowsEscape ===
+                    false;
+        if (this.windowsPathsNoEscape) {
+            pattern = pattern.map(p => p.replace(/\\/g, '/'));
+        }
+        if (this.matchBase) {
+            if (opts.noglobstar) {
+                throw new TypeError('base matching requires globstar');
+            }
+            pattern = pattern.map(p => (p.includes('/') ? p : `./**/${p}`));
+        }
+        this.pattern = pattern;
+        this.platform = opts.platform || glob_defaultPlatform;
+        this.opts = { ...opts, platform: this.platform };
+        if (opts.scurry) {
+            this.scurry = opts.scurry;
+            if (opts.nocase !== undefined &&
+                opts.nocase !== opts.scurry.nocase) {
+                throw new Error('nocase option contradicts provided scurry option');
+            }
+        }
+        else {
+            const Scurry = opts.platform === 'win32' ? PathScurryWin32
+                : opts.platform === 'darwin' ? PathScurryDarwin
+                    : opts.platform ? PathScurryPosix
+                        : PathScurry;
+            this.scurry = new Scurry(this.cwd, {
+                nocase: opts.nocase,
+                fs: opts.fs,
+            });
+        }
+        this.nocase = this.scurry.nocase;
+        // If you do nocase:true on a case-sensitive file system, then
+        // we need to use regexps instead of strings for non-magic
+        // path portions, because statting `aBc` won't return results
+        // for the file `AbC` for example.
+        const nocaseMagicOnly = this.platform === 'darwin' || this.platform === 'win32';
+        const mmo = {
+            // default nocase based on platform
+            ...opts,
+            dot: this.dot,
+            matchBase: this.matchBase,
+            nobrace: this.nobrace,
+            nocase: this.nocase,
+            nocaseMagicOnly,
+            nocomment: true,
+            noext: this.noext,
+            nonegate: true,
+            optimizationLevel: 2,
+            platform: this.platform,
+            windowsPathsNoEscape: this.windowsPathsNoEscape,
+            debug: !!this.opts.debug,
+        };
+        const mms = this.pattern.map(p => new Minimatch(p, mmo));
+        const [matchSet, globParts] = mms.reduce((set, m) => {
+            set[0].push(...m.set);
+            set[1].push(...m.globParts);
+            return set;
+        }, [[], []]);
+        this.patterns = matchSet.map((set, i) => {
+            const g = globParts[i];
+            /* c8 ignore start */
+            if (!g)
+                throw new Error('invalid pattern object');
+            /* c8 ignore stop */
+            return new Pattern(set, g, 0, this.platform);
+        });
+    }
+    async walk() {
+        // Walkers always return array of Path objects, so we just have to
+        // coerce them into the right shape.  It will have already called
+        // realpath() if the option was set to do so, so we know that's cached.
+        // start out knowing the cwd, at least
+        return [
+            ...(await new GlobWalker(this.patterns, this.scurry.cwd, {
+                ...this.opts,
+                maxDepth: this.maxDepth !== Infinity ?
+                    this.maxDepth + this.scurry.cwd.depth()
+                    : Infinity,
+                platform: this.platform,
+                nocase: this.nocase,
+                includeChildMatches: this.includeChildMatches,
+            }).walk()),
+        ];
+    }
+    walkSync() {
+        return [
+            ...new GlobWalker(this.patterns, this.scurry.cwd, {
+                ...this.opts,
+                maxDepth: this.maxDepth !== Infinity ?
+                    this.maxDepth + this.scurry.cwd.depth()
+                    : Infinity,
+                platform: this.platform,
+                nocase: this.nocase,
+                includeChildMatches: this.includeChildMatches,
+            }).walkSync(),
+        ];
+    }
+    stream() {
+        return new GlobStream(this.patterns, this.scurry.cwd, {
+            ...this.opts,
+            maxDepth: this.maxDepth !== Infinity ?
+                this.maxDepth + this.scurry.cwd.depth()
+                : Infinity,
+            platform: this.platform,
+            nocase: this.nocase,
+            includeChildMatches: this.includeChildMatches,
+        }).stream();
+    }
+    streamSync() {
+        return new GlobStream(this.patterns, this.scurry.cwd, {
+            ...this.opts,
+            maxDepth: this.maxDepth !== Infinity ?
+                this.maxDepth + this.scurry.cwd.depth()
+                : Infinity,
+            platform: this.platform,
+            nocase: this.nocase,
+            includeChildMatches: this.includeChildMatches,
+        }).streamSync();
+    }
+    /**
+     * Default sync iteration function. Returns a Generator that
+     * iterates over the results.
+     */
+    iterateSync() {
+        return this.streamSync()[Symbol.iterator]();
+    }
+    [Symbol.iterator]() {
+        return this.iterateSync();
+    }
+    /**
+     * Default async iteration function. Returns an AsyncGenerator that
+     * iterates over the results.
+     */
+    iterate() {
+        return this.stream()[Symbol.asyncIterator]();
+    }
+    [Symbol.asyncIterator]() {
+        return this.iterate();
+    }
+}
+//# sourceMappingURL=glob.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/dist/esm/has-magic.js
+
+/**
+ * Return true if the patterns provided contain any magic glob characters,
+ * given the options provided.
+ *
+ * Brace expansion is not considered "magic" unless the `magicalBraces` option
+ * is set, as brace expansion just turns one string into an array of strings.
+ * So a pattern like `'x{a,b}y'` would return `false`, because `'xay'` and
+ * `'xby'` both do not contain any magic glob characters, and it's treated the
+ * same as if you had called it on `['xay', 'xby']`. When `magicalBraces:true`
+ * is in the options, brace expansion _is_ treated as a pattern having magic.
+ */
+const hasMagic = (pattern, options = {}) => {
+    if (!Array.isArray(pattern)) {
+        pattern = [pattern];
+    }
+    for (const p of pattern) {
+        if (new Minimatch(p, options).hasMagic())
+            return true;
+    }
+    return false;
+};
+//# sourceMappingURL=has-magic.js.map
+;// CONCATENATED MODULE: ./node_modules/glob/dist/esm/index.js
+
+
+
+
+
+
+
+function globStreamSync(pattern, options = {}) {
+    return new Glob(pattern, options).streamSync();
+}
+function globStream(pattern, options = {}) {
+    return new Glob(pattern, options).stream();
+}
+function globSync(pattern, options = {}) {
+    return new Glob(pattern, options).walkSync();
+}
+async function glob_(pattern, options = {}) {
+    return new Glob(pattern, options).walk();
+}
+function globIterateSync(pattern, options = {}) {
+    return new Glob(pattern, options).iterateSync();
+}
+function globIterate(pattern, options = {}) {
+    return new Glob(pattern, options).iterate();
+}
+// aliases: glob.sync.stream() glob.stream.sync() glob.sync() etc
+const streamSync = globStreamSync;
+const stream = Object.assign(globStream, { sync: globStreamSync });
+const iterateSync = globIterateSync;
+const iterate = Object.assign(globIterate, {
+    sync: globIterateSync,
+});
+const sync = Object.assign(globSync, {
+    stream: globStreamSync,
+    iterate: globIterateSync,
+});
+const glob = Object.assign(glob_, {
+    glob: glob_,
+    globSync,
+    sync,
+    globStream,
+    stream,
+    globStreamSync,
+    streamSync,
+    globIterate,
+    iterate,
+    globIterateSync,
+    iterateSync,
+    Glob: Glob,
+    hasMagic: hasMagic,
+    escape: escape_escape,
+    unescape: unescape_unescape,
+});
+glob.glob = glob;
+//# sourceMappingURL=index.js.map
+// EXTERNAL MODULE: external "path"
+var external_path_ = __nccwpck_require__(6928);
+;// CONCATENATED MODULE: ./lib/main.js
+
+
+
+
+
+
+const packageNamePathMap = new Map();
+async function guessPackageNameByFilePath(file) {
+    const parts = file.split('/');
+    let packageName = 'unknown';
+    try {
+        parts.reduce((filePath, part) => {
+            if (packageNamePathMap.has(filePath)) {
+                packageName = packageNamePathMap.get(filePath) || packageName;
+            }
+            return `${filePath}/${part}`.replace(/\/\//g, '/');
+        }, '');
+    }
+    catch (e) {
+        if (e instanceof Error)
+            (0,core.error)(e);
+    }
+    if (packageName !== 'unknown') {
+        return packageName;
+    }
+    do {
+        parts.pop();
+        const filePath = parts.join('/');
+        if ((0,external_fs_.existsSync)(`${filePath}/composer.json`)) {
+            try {
+                const foo = external_path_.resolve(filePath, 'composer.json');
+                const json = (0,external_fs_.readFileSync)(foo, 'utf8');
+                packageName = JSON.parse(json)['name'];
+                break;
+            }
+            catch (e) {
+                if (e instanceof Error)
+                    (0,core.error)(e);
+            }
+        }
+        if ((0,external_fs_.existsSync)(`${filePath}/package.json`)) {
+            try {
+                const foo = external_path_.resolve(filePath, 'package.json');
+                const json = (0,external_fs_.readFileSync)(foo, 'utf8');
+                packageName = JSON.parse(json)['name'];
+                break;
+            }
+            catch (e) {
+                if (e instanceof Error)
+                    (0,core.error)(e);
+            }
+        }
+    } while (parts.length > 0);
+    packageNamePathMap.set(parts.join('/'), packageName);
+    return packageName;
+}
+function getMetricRow(name, metrics, bold = false) {
+    const percentage = parseInt(((metrics.coveredmethods / metrics.methods) * 100).toString(), 10);
+    return `<tr>
+  <td>${bold ? '<strong>' : ''}${name}
+  <td align="center">${bold ? '<strong>' : ''}${((metrics.coveredstatements / metrics.statements || 0) * 100).toFixed(2)}%
+  <td align="right">${bold ? '<strong>' : ''}${metrics.coveredstatements}/${metrics.statements}
+  <td align="center">${bold ? '<strong>' : ''}${((metrics.coveredmethods / metrics.methods || 0) * 100).toFixed(2)}%
+  <td align="right">${bold ? '<strong>' : ''}${metrics.coveredmethods}/${metrics.methods}
+  <td align="center">${bold ? '<strong>' : ''}${((metrics.coveredclasses / metrics.classes) *
+        100).toFixed(2)}%
+  <td align="right">${bold ? '<strong>' : ''}${metrics.coveredclasses}/${metrics.classes}
+  <td align="center">${bold ? '<strong>' : ''}${percentage === 100
+        ? '🚀'
+        : percentage > 80
+            ? '✅'
+            : percentage > 50
+                ? '➖'
+                : '❌'}`;
+}
+async function run() {
+    const summary = [''];
+    const details = [''];
+    try {
+        const files = await glob((0,core.getInput)('filename'), {
+            ignore: 'node_modules/**'
+        });
+        for (const filePath of files) {
+            const xmlData = await (0,promises_namespaceObject.readFile)(external_path_.resolve(filePath), 'utf8');
+            const options = {
+                ignoreAttributes: false
+            };
+            const parser = new XMLParser(options);
+            const reportData = parser.parse(xmlData);
+            let coverageFiles = [];
+            if (reportData.coverage.project?.file) {
+                if (Array.isArray(reportData.coverage.project.file)) {
+                    coverageFiles = [
+                        ...coverageFiles,
+                        ...reportData.coverage.project.file
+                    ];
+                }
+                else {
+                    coverageFiles = [...coverageFiles, reportData.coverage.project.file];
+                }
+            }
+            if (reportData.coverage.project.package?.file) {
+                coverageFiles = [
+                    ...coverageFiles,
+                    ...reportData.coverage.project.package.file
+                ];
+            }
+            if (Array.isArray(reportData.coverage.project?.package)) {
+                coverageFiles = [
+                    ...reportData.coverage.project.package.reduce((_coverageFiles, packageData) => [
+                        ..._coverageFiles,
+                        ...(Array.isArray(packageData.file)
+                            ? packageData.file
+                            : [packageData.file])
+                    ], []),
+                    ...coverageFiles
+                ];
+            }
+            const packages = {};
+            for (const file of coverageFiles) {
+                const packageName = await guessPackageNameByFilePath(file['@_name']);
+                if (packageName === undefined) {
+                    continue;
+                }
+                if (!(packageName in packages)) {
+                    packages[packageName] = {
+                        name: packageName,
+                        classes: {},
+                        metrics: {
+                            name: packageName,
+                            classes: 0,
+                            coveredclasses: 0,
+                            loc: 0,
+                            ncloc: 0,
+                            methods: 0,
+                            coveredmethods: 0,
+                            conditionals: 0,
+                            coveredconditionals: 0,
+                            statements: 0,
+                            coveredstatements: 0,
+                            elements: 0,
+                            coveredelements: 0
+                        }
+                    };
+                }
+                packages[packageName].metrics.classes += parseInt(file.metrics['@_classes'], 10);
+                packages[packageName].metrics.loc += parseInt(file.metrics['@_loc'], 10);
+                packages[packageName].metrics.ncloc += parseInt(file.metrics['@_ncloc'], 10);
+                packages[packageName].metrics.methods += parseInt(file.metrics['@_methods'], 10);
+                packages[packageName].metrics.coveredmethods += parseInt(file.metrics['@_coveredmethods'], 10);
+                packages[packageName].metrics.conditionals += parseInt(file.metrics['@_conditionals'], 10);
+                packages[packageName].metrics.coveredconditionals += parseInt(file.metrics['@_coveredconditionals'], 10);
+                packages[packageName].metrics.statements += parseInt(file.metrics['@_statements'], 10);
+                packages[packageName].metrics.coveredstatements += parseInt(file.metrics['@_coveredstatements'], 10);
+                packages[packageName].metrics.elements += parseInt(file.metrics['@_elements'], 10);
+                packages[packageName].metrics.coveredelements += parseInt(file.metrics['@_coveredelements'], 10);
+                if (!('class' in file)) {
+                    continue;
+                }
+                const classes = !Array.isArray(file.class) ? [file.class] : file.class;
+                for (const item of classes) {
+                    if (item === undefined || item === null) {
+                        continue;
+                    }
+                    const statements = parseInt(item.metrics['@_statements'], 10);
+                    const coveredstatements = parseInt(item.metrics['@_coveredstatements'], 10);
+                    const covered = parseInt(((coveredstatements / statements) * 100).toString(), 10) === 100
+                        ? 1
+                        : 0;
+                    packages[packageName].classes[item['@_name']] = {
+                        name: item['@_name'],
+                        classes: 1,
+                        coveredclasses: covered,
+                        complexity: parseInt(item.metrics['@_complexity'], 10),
+                        loc: parseInt(item.metrics['@_loc'], 10),
+                        ncloc: parseInt(item.metrics['@_ncloc'], 10),
+                        methods: parseInt(item.metrics['@_methods'], 10),
+                        coveredmethods: parseInt(item.metrics['@_coveredmethods'], 10),
+                        conditionals: parseInt(item.metrics['@_conditionals'], 10),
+                        coveredconditionals: parseInt(item.metrics['@_coveredconditionals'], 10),
+                        statements: parseInt(item.metrics['@_statements'], 10),
+                        coveredstatements: parseInt(item.metrics['@_coveredstatements'], 10),
+                        elements: parseInt(item.metrics['@_elements'], 10),
+                        coveredelements: parseInt(item.metrics['@_coveredelements'], 10)
+                    };
+                    packages[packageName].metrics.coveredclasses += covered;
+                }
+            }
+            const summaryMetric = {
+                files: parseInt(reportData.coverage.project.metrics['@_files'], 10),
+                loc: parseInt(reportData.coverage.project.metrics['@_loc'], 10),
+                ncloc: parseInt(reportData.coverage.project.metrics['@_ncloc'], 10),
+                classes: parseInt(reportData.coverage.project.metrics['@_classes'], 10),
+                coveredclasses: Object.values(packages).reduce((covered, _package) => covered + _package.metrics.coveredclasses, 0),
+                methods: parseInt(reportData.coverage.project.metrics['@_methods'], 10),
+                coveredmethods: parseInt(reportData.coverage.project.metrics['@_coveredmethods'], 10),
+                conditionals: parseInt(reportData.coverage.project.metrics['@_conditionals'], 10),
+                coveredconditionals: parseInt(reportData.coverage.project.metrics['@_coveredconditionals'], 10),
+                statements: parseInt(reportData.coverage.project.metrics['@_statements'], 10),
+                coveredstatements: parseInt(reportData.coverage.project.metrics['@_coveredstatements'], 10),
+                elements: parseInt(reportData.coverage.project.metrics['@_elements'], 10),
+                coveredelements: parseInt(reportData.coverage.project.metrics['@_coveredelements'], 10)
+            };
+            summary.push(`<table>
+      <tr>
+        <th colspan="8">Code Coverage
+      <tr>
+        <th colspan="1">Package
+        <th colspan="2">Lines
+        <th colspan="2">Functions
+        <th colspan="2">Classes
+        <th colspan="1">Health
+      ${Object.values(packages)
+                .map((_package) => getMetricRow(_package.name, _package.metrics))
+                .join('\n')}
+      ${getMetricRow('Summary', summaryMetric, true)}
+      </table>`);
+            summary.push('');
+            summary.push('');
+            details.push(`<details>
+          <summary>Code Coverage details</summary>
+          <table>
+            <tr>
+              <th colspan="8">Code Coverage
+            <tr>
+              <th colspan="1">Class
+              <th colspan="2">Lines
+              <th colspan="2">Functions
+              <th colspan="2">Classes
+              <th colspan="1">Health
+            ${Object.values(packages)
+                .map((_package) => `<tr>
+              <td colspan="8"><strong>${_package.name}
+              ${Object.values(_package.classes)
+                .map((_class) => getMetricRow(_class.name, _class))
+                .join('\n')}`)
+                .join('\n')}
+            ${getMetricRow('Summary', summaryMetric, true)}
+          </table>
+        </details>`);
+            details.push('');
+            details.push('');
+        }
+    }
+    catch (e) {
+        if (e instanceof Error)
+            (0,core.setFailed)(e.message);
+    }
+    await (0,promises_namespaceObject.writeFile)(__nccwpck_require__.ab + "code-coverage-summary.md", summary.join('\n'));
+    await (0,promises_namespaceObject.writeFile)(__nccwpck_require__.ab + "code-coverage-details.md", details.join('\n'));
+    return {
+        summary: summary.join('\n'),
+        details: details.join('\n')
+    };
+}
+run();
+//# sourceMappingURL=main.js.map
+var __webpack_exports__getMetricRow = __webpack_exports__.bZ;
+var __webpack_exports__guessPackageNameByFilePath = __webpack_exports__.Xr;
+var __webpack_exports__run = __webpack_exports__.eF;
+export { __webpack_exports__getMetricRow as getMetricRow, __webpack_exports__guessPackageNameByFilePath as guessPackageNameByFilePath, __webpack_exports__run as run };
+
 //# sourceMappingURL=index.js.map
