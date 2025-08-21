@@ -21,7 +21,20 @@ MD030:
 
 # Inline HTML
 MD033:
-  allowed_elements: ['a', 'code', 'em', 'strong', 'br', 'table', 'td', 'tr', 'th', 'details', 'summary']
+  allowed_elements:
+    [
+      'a',
+      'code',
+      'em',
+      'strong',
+      'br',
+      'table',
+      'td',
+      'tr',
+      'th',
+      'details',
+      'summary'
+    ]
 
 # Code block style
 MD046:
