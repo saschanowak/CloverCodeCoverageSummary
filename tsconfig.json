@@ -1,15 +1,13 @@
 {
-    "compilerOptions": {
-        "target": "es6",
-        "module": "commonjs",
-        "outDir": "./lib",
-        "rootDir": "./src",
-        "strict": true,
-        "noImplicitAny": true,
-        "esModuleInterop": true
-    },
-    "exclude": [
-        "node_modules",
-        "**/*.test.ts"
-    ]
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "outDir": "./lib",
+    "rootDir": "./src",
+    "sourceMap": true
+  },
+  "exclude": ["__fixtures__", "__tests__", "coverage", "dist", "node_modules"],
+  "include": ["src"]
 }

@@ -1,24 +1,30 @@
 # Code Coverage Summary
 
+[![GitHub Super-Linter](https://github.com/saschanowak/CloverCodeCoverageSummary/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
+![CI](https://github.com/saschanowak/CloverCodeCoverageSummary/actions/workflows/ci.yml/badge.svg)
+[![Check dist/](https://github.com/saschanowak/CloverCodeCoverageSummary/actions/workflows/check-dist.yml/badge.svg)](https://github.com/saschanowak/CloverCodeCoverageSummary/actions/workflows/check-dist.yml)
+[![CodeQL](https://github.com/saschanowak/CloverCodeCoverageSummary/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/saschanowak/CloverCodeCoverageSummary/actions/workflows/codeql-analysis.yml)
+[![Coverage](./badges/coverage.svg)](./badges/coverage.svg)
+
 A GitHub Action that reads Clover format code coverage files from your test
 suite and outputs a markdown summary. This summary can be posted as a Pull
 Request comment or included in Release Notes by other actions to give you an
 immediate insight into the health of your code without using a third-party site.
 Code Coverage Summary is designed for use with any test framework that outputs
-coverage in Clover XML format.
-The action has a build in feature to group coverage by package. This currently
-works with composer.json only.
+coverage in Clover XML format. The action has a build in feature to group
+coverage by package. This currently works with composer.json only.
 
 ## Inputs
 
 ### `filename`
+
 **Required**
 
-A path to the code coverage file to analyse. Also supports using glob patterns to match multiple files. If there are any spaces in a path or filename this value must be in quotes.
-
+A path to the code coverage file to analyse. Also supports using glob patterns
+to match multiple files. If there are any spaces in a path or filename this
+value must be in quotes.
 
 ## Outputs
-
 
 ### Markdown Example Summary
 
@@ -108,39 +114,42 @@ A path to the code coverage file to analyse. Also supports using glob patterns t
 ## Usage
 
 ```yaml
-      - name: Code Coverage Summary Report
-        uses: saschanowak/CloverCodeCoverageSummary@1.1.0
-        with:
-          filename: clover.xml
+- name: Code Coverage Summary Report
+  uses: saschanowak/CloverCodeCoverageSummary@1.1.0
+  with:
+    filename: clover.xml
 ```
 
 Add the following to your workflow to include the summary in the job summary:
+
 ```yaml
-      - name: 'Add Code Coverage to Job Summary'
-        run: |
-          cat code-coverage-summary.md >> $GITHUB_STEP_SUMMARY
-          cat code-coverage-details.md >> $GITHUB_STEP_SUMMARY
+- name: 'Add Code Coverage to Job Summary'
+  run: |
+    cat code-coverage-summary.md >> $GITHUB_STEP_SUMMARY
+    cat code-coverage-details.md >> $GITHUB_STEP_SUMMARY
 ```
 
-Add the following to your workflow to post the summary as a Pull Request comment:
+Add the following to your workflow to post the summary as a Pull Request
+comment:
+
 ```yaml
-      - name: 'Add Code Coverage Summary as PR Comment'
-        uses: marocchino/sticky-pull-request-comment@v2
-        if: github.event_name == 'pull_request'
-        with:
-          recreate: true
-          path: code-coverage-summary.md
+- name: 'Add Code Coverage Summary as PR Comment'
+  uses: marocchino/sticky-pull-request-comment@v2
+  if: github.event_name == 'pull_request'
+  with:
+    recreate: true
+    path: code-coverage-summary.md
 ```
 
 ## Version Numbers
 
-Version numbers will be assigned according to the [Semantic Versioning](https://semver.org/) scheme.
-This means, given a version number MAJOR.MINOR.PATCH, we will increment the:
+Version numbers will be assigned according to the
+[Semantic Versioning](https://semver.org/) scheme. This means, given a version
+number MAJOR.MINOR.PATCH, we will increment the:
 
 1. MAJOR version when we make incompatible API changes
 2. MINOR version when we add functionality in a backwards compatible manner
 3. PATCH version when we make backwards compatible bug fixes
-
 
 ## Contributing
 
@@ -148,26 +157,30 @@ This means, given a version number MAJOR.MINOR.PATCH, we will increment the:
 
 Please make sure the bug is not already reported by searching existing [issues].
 
-If you're unable to find an existing issue addressing the problem please [open a new one][new-issue]. Be sure to include a title and clear description, as much relevant information as possible, a workflow sample and any logs demonstrating the problem.
-
+If you're unable to find an existing issue addressing the problem please [open a
+new one][new-issue]. Be sure to include a title and clear description, as much
+relevant information as possible, a workflow sample and any logs demonstrating
+the problem.
 
 ### Suggest an Enhancement
 
 Please [open a new issue][new-issue].
 
-
 ### Submit a Pull Request
 
-Discuss your idea first, so that your changes have a good chance of being merged in.
+Discuss your idea first, so that your changes have a good chance of being merged
+in.
 
 Submit your pull request against the `main` branch.
 
-Pull requests that include documentation and relevant updates to README.md are merged faster, because you won't have to wait for somebody else to complete your contribution.
-
+Pull requests that include documentation and relevant updates to README.md are
+merged faster, because you won't have to wait for somebody else to complete your
+contribution.
 
 ## License
 
-Code Coverage Summary is available under the MIT license, see the [LICENSE](LICENSE) file for more info.
+Code Coverage Summary is available under the MIT license, see the
+[LICENSE](LICENSE) file for more info.
 
-[issues]: https://github.com/irongut/CodeCoverageSummary/issues
-[new-issue]: https://github.com/irongut/CodeCoverageSummary/issues/new
+[issues]: https://github.com/saschanowak/CloverCodeCoverageSummary/issues
+[new-issue]: https://github.com/saschanowak/CloverCodeCoverageSummary/issues/new

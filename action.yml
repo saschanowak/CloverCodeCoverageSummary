@@ -1,6 +1,7 @@
 name: 'Clover Code Coverage Summary'
 author: 'Sascha Nowak'
-description: 'A GitHub Action to generate a code coverage summary from Clover XML reports.'
+description:
+  'A GitHub Action to generate a code coverage summary from Clover XML reports.'
 branding:
   icon: trending-up
   color: black
@@ -9,5 +10,5 @@ inputs:
     description: 'Path and filename of the clover coverage report'
     required: true
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: node22
+  main: dist/index.js
