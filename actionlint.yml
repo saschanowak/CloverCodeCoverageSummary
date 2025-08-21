@@ -3,4 +3,4 @@
 paths:
   .github/workflows/**/*.{yml,yaml}:
     ignore:
-      - invalid runner name "node22"
+      - invalid runner name "node24"
