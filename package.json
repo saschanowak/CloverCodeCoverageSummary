@@ -35,7 +35,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.11.1",
+    "@actions/core": "^3.0.0",
     "fast-xml-parser": "^5.3.5",
     "glob": "^11.0.3"
   },
